@@ -1,0 +1,10 @@
+name: dofusuikyo
+# Minimal env. This is a Godot 4.7 / GDScript project — the game needs the Godot
+# editor + Android export templates + adb, NOT conda. Python is only here for the
+# one scripted task: normalizing the 12 character sprites to a consistent crop/size
+# (DESIGN.md §6, risk in §11). Add deps when a real script needs them — not before.
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pillow

@@ -1,17 +1,63 @@
-# Godot 4+ specific ignores
+# ── Godot 4+ ─────────────────────────────────────────────
+# Editor cache and imported assets (regenerated on open)
 .godot/
 .nomedia
-
-# Godot-specific ignores
 .import/
 export.cfg
 export_credentials.cfg
 *.tmp
 
-# Imported translations (automatically generated from CSV files)
-*.translation
+# Installed Android build template + Gradle build artifacts.
+# Regenerated via Project > Install Android Build Template.
+/android/
 
-# Mono-specific ignores
+# Mono/.NET build output (unused for GDScript, here for safety)
 .mono/
 data_*/
 mono_crash.*.json
+
+# Dev screenshot harness output (regenerated; see dev/preview.tscn)
+/dev/*.png
+
+# ── Export output ────────────────────────────────────────
+# Built binaries — keep them out of source control
+*.apk
+*.aab
+*.exe
+*.pck
+*.zip
+/export/
+/build/
+
+# Signing material — never commit keystores or credentials
+*.keystore
+*.jks
+export_credentials.cfg
+
+# ── Claude Code ──────────────────────────────────────────
+# Per-machine local settings (commit .claude/settings.json instead)
+.claude/settings.local.json
+
+# ── Editors / IDEs ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Godot toolchain blobs (install into Godot, never commit) ─
+*.tpz
+
+# ── Temp files ───────────────────────────────────────────
+# Transient files (e.g. Windows ~name.dll~RF*.TMP written during file replace)
+*.tmp
+*.TMP
+*~
+_dev_notes
+
+# ── OS junk (Windows / OneDrive / macOS) ─────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
