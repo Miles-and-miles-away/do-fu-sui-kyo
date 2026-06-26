@@ -9,9 +9,9 @@
 # (testing the VR/sprite layer would be anti-YAGNI — see _dev_notes/00 §4).
 #
 # Encodes finding F2 (per-instance material) and E13 (await-after-free guard).
-# TODO: → extends "res://addons/godot-xr-tools/objects/pickable.gd" once the addon is installed
-# (XRToolsPickable IS a RigidBody3D; one node = grabbable + face owner — DESIGN §6, ASSETS §3).
-extends RigidBody3D
+# Root extends XRToolsPickable (a RigidBody3D) so ONE node is grabbable/throwable AND owns
+# its face; PlayZone reads card_type / show_smile() off the body entering the zone (DESIGN §6).
+extends "res://addons/godot-xr-tools/objects/pickable.gd"  # XRToolsPickable, a RigidBody3D
 
 # Card type as 0/1/2 — SAME ordering as GameState.Type (WATER=0, SKY=1, EARTH=2).
 # Using @export_enum int (not `: GameState.Type`) so this stub compiles standalone and
@@ -37,6 +37,7 @@ var _locked := false  # once the card emotes (smile/cry), stop blinking (R7)
 
 
 func _ready() -> void:
+	super()  # CRITICAL: let XRToolsPickable collect grab points / init grab state (else throw breaks)
 	_ensure_unique_material()  # F2 — must be per-instance or every card's face changes together
 	_set(tex_neutral)
 	_blink_timer = Timer.new()

@@ -1,0 +1,89 @@
+; main.tscn — the game scene (run/main_scene). Thin XR rig (instanced) + table + the GameRoot
+; subtree (the logic→scene bridge) + dim environment. Node-path contract from the stubs is
+; preserved: under GameRoot, PlayZone / RobotPlayer / RobotThrowPoint / ScorePanel are siblings,
+; PlayerHandAnchors holds Slot0..2 (ASSETS §4.1).
+; Positions are a FIRST PASS — table is ~0.4 m in front of a Local-Floor origin; tune the whole
+; layout + PlayZone size + throw feel in-editor/in-headset (DESIGN §11).
+; ⚠️ Open in Godot 4.7 once to assign UIDs and confirm every ExtResource resolves.
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="PackedScene" path="res://game/xr_rig.tscn" id="1_rig"]
+[ext_resource type="Script" path="res://game/GameRoot.gd" id="2_gameroot"]
+[ext_resource type="Script" path="res://game/PlayZone.gd" id="3_playzone"]
+[ext_resource type="Script" path="res://game/RobotPlayer.gd" id="4_robot"]
+[ext_resource type="PackedScene" path="res://game/Card.tscn" id="5_card"]
+
+[sub_resource type="Environment" id="Environment_dim"]
+; Dark, low-contrast so the (unshaded) card faces stay the brightest thing in view (R29 spirit).
+background_mode = 1
+background_color = Color(0.04, 0.04, 0.06, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.45, 0.45, 0.5, 1)
+ambient_light_energy = 1.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_table"]
+size = Vector3(1.2, 0.7, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_table"]
+size = Vector3(1.2, 0.7, 0.8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zone"]
+; Generous + tall (25 cm) so a fast flat card is inside for ≥1 tick (finding F3). Not paper-thin.
+size = Vector3(0.6, 0.25, 0.45)
+
+[node name="Main" type="Node3D"]
+
+[node name="XRRig" parent="." instance=ExtResource("1_rig")]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_dim")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 3, 0)
+
+[node name="Table" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -0.4)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Table"]
+mesh = SubResource("BoxMesh_table")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Table"]
+shape = SubResource("BoxShape3D_table")
+
+[node name="GameRoot" type="Node3D" parent="."]
+script = ExtResource("2_gameroot")
+card_scene = ExtResource("5_card")
+
+[node name="PlayerHandAnchors" type="Node3D" parent="GameRoot"]
+
+[node name="Slot0" type="Marker3D" parent="GameRoot/PlayerHandAnchors"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0.74, -0.15)
+
+[node name="Slot1" type="Marker3D" parent="GameRoot/PlayerHandAnchors"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.74, -0.15)
+
+[node name="Slot2" type="Marker3D" parent="GameRoot/PlayerHandAnchors"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0.74, -0.15)
+
+[node name="PlayZone" type="Area3D" parent="GameRoot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -0.45)
+collision_layer = 0
+collision_mask = 4
+script = ExtResource("3_playzone")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GameRoot/PlayZone"]
+shape = SubResource("BoxShape3D_zone")
+
+[node name="RobotThrowPoint" type="Marker3D" parent="GameRoot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, -0.75)
+
+[node name="RobotPlayer" type="Node3D" parent="GameRoot"]
+script = ExtResource("4_robot")
+
+[node name="ScorePanel" type="Label3D" parent="GameRoot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -0.85)
+pixel_size = 0.003
+billboard = 0
+text = "You 0 — 0 Robot"
+font_size = 64
+outline_size = 12

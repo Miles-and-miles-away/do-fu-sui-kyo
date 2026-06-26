@@ -1,0 +1,48 @@
+; bringup.tscn — Stage 0 toolchain proof (FSD T10, DESIGN §10). Rig + one grabbable cube,
+; NO game code. Deploy THIS to the Quest first to prove OpenXR + rig + grab + export/deploy
+; work, before debugging any game logic. "Never debug your code and the toolchain together."
+; Temporarily set run/main_scene to res://bringup.tscn (or run this scene with F6) for T10.
+; ⚠️ Open in Godot 4.7 once to assign UIDs + confirm the addon resolves.
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://game/xr_rig.tscn" id="1_rig"]
+[ext_resource type="Script" uid="uid://bfrlpbsqg5lqr" path="res://addons/godot-xr-tools/objects/pickable.gd" id="2_pickable"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_cube"]
+size = Vector3(0.08, 0.08, 0.08)
+
+[sub_resource type="BoxMesh" id="BoxMesh_cube"]
+size = Vector3(0.08, 0.08, 0.08)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
+size = Vector3(4, 0.1, 4)
+
+[node name="Bringup" type="Node3D"]
+
+[node name="XRRig" parent="." instance=ExtResource("1_rig")]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 3, 0)
+
+[node name="Floor" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("BoxShape3D_floor")
+
+; A grabbable cube floating at chest height (frozen so it rests; XRToolsPickable unfreezes
+; it on release so you can throw it). Layer 3 (=4) is what FunctionPickup grabs (ASSETS §6).
+[node name="GrabCube" type="RigidBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -0.35)
+collision_layer = 4
+collision_mask = 196615
+freeze = true
+freeze_mode = 1
+script = ExtResource("2_pickable")
+release_mode = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GrabCube"]
+shape = SubResource("BoxShape3D_cube")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="GrabCube"]
+mesh = SubResource("BoxMesh_cube")
