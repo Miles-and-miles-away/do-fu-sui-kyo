@@ -73,10 +73,10 @@ scene geometry, so per best-practice (`_dev_notes/godot_tutorials.md §5.2`) it 
 |---|---|---|---|
 | `GameState.gd` | Autoload | ✅ DONE | — |
 | `tests/test_game_state.gd` | headless `SceneTree` | ✅ DONE | — |
-| `game/CardFace.gd` | `Card.tscn` root | 🟡 STUB | **Change `extends RigidBody3D` → `extends "res://addons/godot-xr-tools/objects/pickable.gd"`** so the same node is grabbable *and* owns the face (see §4.2). The mesh/timer logic is unchanged. |
-| `game/PlayZone.gd` | `PlayZone` (Area3D) | 🟡 STUB | Node paths resolve once `main.tscn` is authored. No code change expected. |
-| `game/RobotPlayer.gd` | `RobotPlayer` (Node3D) | 🟡 STUB | Needs `Card.tscn` assigned + the 12 frames. No code change expected. |
-| `game/GameRoot.gd` | `GameRoot` (Node3D) | ⬜ TODO | **The one missing glue script.** Spawns/clears the player's hand cards from `GameState.player_hand` into the slots on new game + after each round; assigns per-type frames. Nobody owns this today — `PlayZone._begin_next_round()` only has a TODO comment for it. Keep it tiny (≤40 lines). |
+| `game/CardFace.gd` | `Card.tscn` root | ✅ WIRED | Now `extends pickable.gd` with `super()` in `_ready()`. Verify in-headset (T11/T13/T14). |
+| `game/PlayZone.gd` | `PlayZone` (Area3D) | ✅ WIRED | Calls GameRoot to clear/re-deal between rounds; auto-restart on game over. |
+| `game/RobotPlayer.gd` | `RobotPlayer` (Node3D) | ✅ WIRED | Delegates card creation to `GameRoot.make_card()`; keeps only throw vs place. |
+| `game/GameRoot.gd` | `GameRoot` (Node3D) | ✅ DONE | The logic→scene bridge **and** the single Card factory (12 frames assigned here once, used by player deal + robot). Spawns/clears hands; `clear_table()` frees the `card` group each round. |
 
 > **Why GameRoot.gd is needed:** `GameState` is headless and holds only `Array[Type]`. Something
 > must turn `player_hand = [WATER, SKY, EARTH]` into three grabbable `Card.tscn` at the slots, and
@@ -207,14 +207,14 @@ plain anchors feel loose in-headset.
 |---|---|---|
 | `[autoload] GameState` | `*res://GameState.gd` | ✅ set |
 | `[physics] common/physics_ticks_per_second` | 90 (match HMD refresh) | ✅ set; anti-tunnel (F3) |
-| `[xr] openxr/enabled` | `true` | ⬜ enable OpenXR runtime |
-| `[xr] shaders/enabled` | `true` | ⬜ XR shader compilation |
-| `xr/openxr/reference_space` | **Local Floor** | seated/standing table; runtime handles recenter (§1.7) |
-| `xr/openxr/foveation_level` | High (Compatibility) | perf (NFR6); Mobile uses `Viewport.VRS_XR` |
-| `xr/openxr/extensions/hand_tracking` | **off** | controller-only game; saves overhead |
-| `[editor_plugins] enabled` | + `godot-xr-tools/plugin.cfg` | ⬜ enable addon |
+| `[xr] openxr/enabled` | `true` | ✅ set |
+| `[xr] shaders/enabled` | `true` | ✅ set |
+| `xr/openxr/reference_space` | **Local Floor** | ⬜ set via dropdown in editor (enum not hard-coded) |
+| `xr/openxr/foveation_level` | High | ✅ set (=3) + dynamic; tune on device (NFR6) |
+| `xr/openxr/extensions/hand_tracking` | **off** | ⬜ confirm off in editor; controller-only game |
+| `[editor_plugins] enabled` | + `godot-xr-tools/plugin.cfg` | ✅ set (addon vendored) |
 | `rendering/renderer/rendering_method` | mobile (Quest) | ✅ set; re-test vs Compatibility on-device |
-| `run/main_scene` | `res://main.tscn` | ⬜ set once main.tscn exists |
+| `run/main_scene` | `res://main.tscn` | ✅ set |
 | Layer names (3D physics) | name layers: `card`, `play_zone`, `table` | mask config (§4.2 gotcha) |
 
 **Collision layer/mask plan** (the held-layer trap, §8):
@@ -232,16 +232,22 @@ game code.
 ## 7. Build/borrow order (smallest path to each gate)
 
 1. ✅ **Brain** — `GameState.gd` + tests (DONE, T1–T9 green).
-2. ⬜ **Toolchain** — install addon + OpenXR + export preset; deploy bring-up APK = copy of
-   `grab_cube.tscn` in a copied rig (T10). *No game code yet.*
-3. ⬜ **Card.tscn** — start from the addon's `saucer.tscn` tuning; flip `CardFace.gd` to
-   `extends pickable.gd`; confirm grab+throw in-headset (T11).
-4. ⬜ **Faces** — import 12 sprites (F4 settings); wire `CardFace` frames; blink (T13, T14).
-5. ⬜ **PlayZone + GameRoot.gd** — Area3D fires → `GameState.play_round()`; GameRoot spawns/clears
-   player hand; smile/cry swap (T12, T13).
-6. ⬜ **RobotPlayer** — spawn + throw robot card; ScorePanel; reveal pause; first-to-3 + restart
-   (T15–T18). Then **stop adding features**; tune throw; rehearse 90 s.
+2. 🟡 **Toolchain** — addon vendored + OpenXR/plugin enabled in `project.godot`; `bringup.tscn`
+   (rig + grab cube, no game code) ready to deploy for T10. ⬜ Export preset + adb on the day.
+3. ✅ **Card.tscn** — authored (pickable root, thin box + CCD, per-instance material). Tune
+   mass/collider feel in-headset (T11). `CardFace.gd` flipped to `extends pickable.gd`.
+4. 🟡 **Faces** — `CardFace` + GameRoot frame wiring done; ⬜ user supplies 12 PNGs + F4 import
+   settings, then assign to `GameRoot.frames_*` (T13, T14, T20).
+5. ✅ **PlayZone + GameRoot.gd** — Area3D fires → `GameState.play_round()`; GameRoot spawns/clears
+   the player hand; smile/cry swap; round flow wired (T12, T13). Verify in-headset.
+6. ✅ **RobotPlayer** — presents robot card via the GameRoot factory; ScorePanel + reveal pause +
+   first-to-3 + auto-restart wired. Tune throw on the day (T15–T18), then **stop adding features**.
 7. ✂️ **RoomShell** — only with Day-2-PM slack (R29–R31, T24–T26). Cut first if framerate dips.
+
+> New scenes this pass: `game/xr_rig.tscn` (thin rig, instanced by both below), `bringup.tscn`
+> (T10), `main.tscn` (the game). All **hand-authored as text** — open in Godot 4.7 once to
+> validate (UIDs + ExtResource links). See `_dev_notes/01_vr_layer_buildout.md` for the full
+> in-editor verify list + the in-headset bring-up checklist.
 
 ---
 
