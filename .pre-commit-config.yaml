@@ -1,0 +1,12 @@
+# Local gate so agents/humans catch lint+format before it ever reaches CI.
+# Fast (pure Python, no Godot) — the compile-check + test suite stay in CI only,
+# since they need the engine and would make every commit slow.
+#
+# Setup once:  pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/Scony/godot-gdscript-toolkit
+    rev: 4.5.0 # keep in step with the ~=4.5 pin in .github/workflows/ci.yml
+    hooks:
+      - id: gdformat # auto-formats; commit fails if it changed anything
+      - id: gdlint
+exclude: ^addons/ # third-party code, not ours to format

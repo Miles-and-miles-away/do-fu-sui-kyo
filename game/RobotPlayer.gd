@@ -11,14 +11,14 @@
 extends Node3D
 
 # Card scene + the 12 frames, grouped per type (R8). Assign in the inspector.
-@export var card_scene: PackedScene                      # res://game/Card.tscn
-@export var frames_water: Array[Texture2D]               # [neutral, blink, smile, cry]
+@export var card_scene: PackedScene  # res://game/Card.tscn
+@export var frames_water: Array[Texture2D]  # [neutral, blink, smile, cry]
 @export var frames_sky: Array[Texture2D]
 @export var frames_earth: Array[Texture2D]
 
 # Tunables (FSD §5.1 — venue-calibratable): throw strength, and whether to throw vs place.
 @export var throw_impulse: float = 4.0
-@export var use_physics_throw: bool = true   # false → place directly (robust fallback)
+@export var use_physics_throw: bool = true  # false → place directly (robust fallback)
 
 @onready var _throw_point: Node3D = $"../RobotThrowPoint"
 @onready var _play_zone: Area3D = $"../PlayZone"
@@ -48,11 +48,14 @@ func present_card(t: int) -> Node:
 func _apply_frames(card: Node, t: int) -> void:
 	var frames: Array[Texture2D]
 	match t:
-		0: frames = frames_water
-		1: frames = frames_sky
-		2: frames = frames_earth
+		0:
+			frames = frames_water
+		1:
+			frames = frames_sky
+		2:
+			frames = frames_earth
 	if frames.size() == 4:
 		card.tex_neutral = frames[0]
-		card.tex_blink   = frames[1]
-		card.tex_smile   = frames[2]
-		card.tex_cry     = frames[3]
+		card.tex_blink = frames[1]
+		card.tex_smile = frames[2]
+		card.tex_cry = frames[3]

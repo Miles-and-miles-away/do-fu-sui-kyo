@@ -31,7 +31,7 @@ func _initialize() -> void:
 	_t7_deck_exhaustion(gs)
 	_t8_robot_legality(gs)
 	_t9_game_over_boundary(gs)
-	_t1_integration(gs)   # full game loop last (drives to game over)
+	_t1_integration(gs)  # full game loop last (drives to game over)
 
 	gs.free()
 
@@ -52,6 +52,7 @@ func _check(cond: bool, msg: String) -> void:
 	else:
 		_failures.append(msg)
 
+
 # Set a typed Array[Type] hand from a plain int array WITHOUT the typed-assignment
 # pitfall (append-an-int into Array[Type] is allowed; assigning a bare Array is not).
 func _set_hand(hand: Array, values: Array) -> void:
@@ -64,56 +65,101 @@ func _set_hand(hand: Array, values: Array) -> void:
 func _t2_new_game_start(gs) -> void:
 	gs.new_game()
 	var one_of_each := [gs.Type.WATER, gs.Type.SKY, gs.Type.EARTH]
-	var ph := gs.player_hand.duplicate(); ph.sort()
-	var rh := gs.robot_hand.duplicate(); rh.sort()
+	var ph := gs.player_hand.duplicate()
+	ph.sort()
+	var rh := gs.robot_hand.duplicate()
+	rh.sort()
 	_check(ph == one_of_each, "T2: player_hand should be one-of-each, got %s" % [gs.player_hand])
 	_check(rh == one_of_each, "T2: robot_hand should be one-of-each, got %s" % [gs.robot_hand])
 	_check(gs.player_score == 0 and gs.robot_score == 0, "T2: scores should start 0")
-	_check(gs.deck.size() == gs.copies_per_type * 3, "T2: deck should be %d, got %d" % [gs.copies_per_type * 3, gs.deck.size()])
+	_check(
+		gs.deck.size() == gs.copies_per_type * 3,
+		"T2: deck should be %d, got %d" % [gs.copies_per_type * 3, gs.deck.size()]
+	)
 
 
 # ── T3 — resolution truth table, all 9 cells (R4, R16) ───────────────────────
 func _t3_resolve_truth_table(gs) -> void:
-	var W = gs.Type.WATER; var S = gs.Type.SKY; var E = gs.Type.EARTH
+	var w = gs.Type.WATER
+	var s = gs.Type.SKY
+	var e = gs.Type.EARTH
 	# expected outcome of resolve(player, robot): 1 player, -1 robot, 0 draw
 	var expected := {
-		[W, W]: 0, [W, S]: 1,  [W, E]: -1,
-		[S, W]: -1, [S, S]: 0, [S, E]: 1,
-		[E, W]: 1,  [E, S]: -1, [E, E]: 0,
+		[w, w]: 0,
+		[w, s]: 1,
+		[w, e]: -1,
+		[s, w]: -1,
+		[s, s]: 0,
+		[s, e]: 1,
+		[e, w]: 1,
+		[e, s]: -1,
+		[e, e]: 0,
 	}
 	for pair in expected:
 		var got: int = gs.resolve(pair[0], pair[1])
-		_check(got == expected[pair],
-			"T3: resolve(%s,%s) expected %d, got %d" % [gs.TYPE_NAMES[pair[0]], gs.TYPE_NAMES[pair[1]], expected[pair], got])
+		_check(
+			got == expected[pair],
+			(
+				"T3: resolve(%s,%s) expected %d, got %d"
+				% [gs.TYPE_NAMES[pair[0]], gs.TYPE_NAMES[pair[1]], expected[pair], got]
+			)
+		)
 
 
 # ── T4 — scoring: +1 to winner, +0 on draw, never a step > 1 (R17) ───────────
 func _t4_scoring(gs) -> void:
 	# player win: WATER beats SKY
 	gs.new_game()
-	_set_hand(gs.player_hand, [gs.Type.WATER]); _set_hand(gs.robot_hand, [gs.Type.SKY])
+	_set_hand(gs.player_hand, [gs.Type.WATER])
+	_set_hand(gs.robot_hand, [gs.Type.SKY])
 	var r := gs.play_round(gs.Type.WATER)
-	_check(r.outcome == 1 and gs.player_score == 1 and gs.robot_score == 0, "T4: player-win should be 1–0, got %d–%d (outcome %d)" % [gs.player_score, gs.robot_score, r.outcome])
+	_check(
+		r.outcome == 1 and gs.player_score == 1 and gs.robot_score == 0,
+		(
+			"T4: player-win should be 1–0, got %d–%d (outcome %d)"
+			% [gs.player_score, gs.robot_score, r.outcome]
+		)
+	)
 
 	# robot win: EARTH beats WATER
 	gs.new_game()
-	_set_hand(gs.player_hand, [gs.Type.WATER]); _set_hand(gs.robot_hand, [gs.Type.EARTH])
+	_set_hand(gs.player_hand, [gs.Type.WATER])
+	_set_hand(gs.robot_hand, [gs.Type.EARTH])
 	r = gs.play_round(gs.Type.WATER)
-	_check(r.outcome == -1 and gs.player_score == 0 and gs.robot_score == 1, "T4: robot-win should be 0–1, got %d–%d (outcome %d)" % [gs.player_score, gs.robot_score, r.outcome])
+	_check(
+		r.outcome == -1 and gs.player_score == 0 and gs.robot_score == 1,
+		(
+			"T4: robot-win should be 0–1, got %d–%d (outcome %d)"
+			% [gs.player_score, gs.robot_score, r.outcome]
+		)
+	)
 
 	# draw: WATER vs WATER → no points
 	gs.new_game()
-	_set_hand(gs.player_hand, [gs.Type.WATER]); _set_hand(gs.robot_hand, [gs.Type.WATER])
+	_set_hand(gs.player_hand, [gs.Type.WATER])
+	_set_hand(gs.robot_hand, [gs.Type.WATER])
 	r = gs.play_round(gs.Type.WATER)
-	_check(r.outcome == 0 and gs.player_score == 0 and gs.robot_score == 0, "T4: draw should be 0–0, got %d–%d (outcome %d)" % [gs.player_score, gs.robot_score, r.outcome])
+	_check(
+		r.outcome == 0 and gs.player_score == 0 and gs.robot_score == 0,
+		(
+			"T4: draw should be 0–0, got %d–%d (outcome %d)"
+			% [gs.player_score, gs.robot_score, r.outcome]
+		)
+	)
 
 
 # ── T5 — refill to 3 after a round (R11) ─────────────────────────────────────
 func _t5_refill(gs) -> void:
 	gs.new_game()
 	gs.play_round(gs.player_hand[0])
-	_check(gs.player_hand.size() == 3, "T5: player_hand should refill to 3, got %d" % gs.player_hand.size())
-	_check(gs.robot_hand.size() == 3, "T5: robot_hand should refill to 3, got %d" % gs.robot_hand.size())
+	_check(
+		gs.player_hand.size() == 3,
+		"T5: player_hand should refill to 3, got %d" % gs.player_hand.size()
+	)
+	_check(
+		gs.robot_hand.size() == 3,
+		"T5: robot_hand should refill to 3, got %d" % gs.robot_hand.size()
+	)
 
 
 # ── T6 — hand drift: duplicates are legal & handled, no error (R12) ──────────
@@ -126,15 +172,21 @@ func _t6_hand_drift(gs) -> void:
 		if gs.game_over():
 			gs.new_game()
 		gs.play_round(gs.player_hand[0])
-		_check(gs.player_hand.size() == 3 or gs.game_over(), "T6: hand size invariant broke (%d)" % gs.player_hand.size())
+		_check(
+			gs.player_hand.size() == 3 or gs.game_over(),
+			"T6: hand size invariant broke (%d)" % gs.player_hand.size()
+		)
 
 	# (b) A drifted (duplicate-bearing) hand is explicitly legal and resolves cleanly.
 	gs.new_game()
 	_set_hand(gs.player_hand, [gs.Type.WATER, gs.Type.WATER, gs.Type.SKY])  # forced drift
-	_set_hand(gs.robot_hand,  [gs.Type.EARTH, gs.Type.SKY, gs.Type.WATER])
-	var r := gs.play_round(gs.Type.WATER)   # throw one of the duplicates
+	_set_hand(gs.robot_hand, [gs.Type.EARTH, gs.Type.SKY, gs.Type.WATER])
+	var r := gs.play_round(gs.Type.WATER)  # throw one of the duplicates
 	_check(r.outcome in [1, -1, 0], "T6: drifted hand failed to resolve")
-	_check(gs.player_hand.size() == 3 or gs.game_over(), "T6: hand should still refill to 3 after a duplicate play")
+	_check(
+		gs.player_hand.size() == 3 or gs.game_over(),
+		"T6: hand should still refill to 3 after a duplicate play"
+	)
 
 
 # ── T7 — deck exhaustion: never empties / crashes (R13, edge E1) ──────────────
@@ -146,10 +198,16 @@ func _t7_deck_exhaustion(gs) -> void:
 		if c != gs.Type.WATER and c != gs.Type.SKY and c != gs.Type.EARTH:
 			ok = false
 	_check(ok, "T7: draw_one returned an invalid type during exhaustion")
-	_check(not gs.deck.is_empty() or true, "T7: (deck may legitimately be empty between draws; rebuild happens on next draw)")
+	_check(
+		not gs.deck.is_empty() or true,
+		"T7: (deck may legitimately be empty between draws; rebuild happens on next draw)"
+	)
 	# one more draw after heavy draining must still succeed (rebuild guard)
 	var after = gs.draw_one()
-	_check(after == gs.Type.WATER or after == gs.Type.SKY or after == gs.Type.EARTH, "T7: draw after exhaustion failed")
+	_check(
+		after == gs.Type.WATER or after == gs.Type.SKY or after == gs.Type.EARTH,
+		"T7: draw after exhaustion failed"
+	)
 
 
 # ── T8 — robot picks legally from its OWN hand and removes it (R14) ──────────
@@ -159,7 +217,10 @@ func _t8_robot_legality(gs) -> void:
 	var before_player := gs.player_hand.duplicate()
 	var start_size := gs.robot_hand.size()
 	var picked = gs.robot_pick()
-	_check(picked == gs.Type.WATER or picked == gs.Type.SKY, "T8: robot picked a type not in its hand: %s" % gs.TYPE_NAMES.get(picked, picked))
+	_check(
+		picked == gs.Type.WATER or picked == gs.Type.SKY,
+		"T8: robot picked a type not in its hand: %s" % gs.TYPE_NAMES.get(picked, picked)
+	)
 	_check(gs.robot_hand.size() == start_size - 1, "T8: robot_pick should remove one card")
 	_check(gs.player_hand == before_player, "T8: robot_pick must not touch the player's hand")
 
@@ -167,11 +228,13 @@ func _t8_robot_legality(gs) -> void:
 # ── T9 — game_over true IFF a side has reached 3 (R19, edge E5) ──────────────
 func _t9_game_over_boundary(gs) -> void:
 	gs.new_game()
-	gs.player_score = 2; gs.robot_score = 0
+	gs.player_score = 2
+	gs.robot_score = 0
 	_check(not gs.game_over(), "T9: 2–0 should NOT be game over")
 	gs.player_score = 3
 	_check(gs.game_over(), "T9: 3–0 should be game over")
-	gs.player_score = 0; gs.robot_score = 3
+	gs.player_score = 0
+	gs.robot_score = 3
 	_check(gs.game_over(), "T9: 0–3 should be game over")
 
 
@@ -188,8 +251,14 @@ func _t1_integration(gs) -> void:
 		_check(after - prev_total <= 1, "T1: cumulative score jumped >1")
 		prev_total = after
 		if not r.game_over:
-			_check(gs.player_hand.size() == 3 and gs.robot_hand.size() == 3, "T1: hands not refilled to 3 between rounds")
+			_check(
+				gs.player_hand.size() == 3 and gs.robot_hand.size() == 3,
+				"T1: hands not refilled to 3 between rounds"
+			)
 		rounds += 1
 	_check(rounds < 50, "T1: game failed to end within 50 rounds (runaway)")
 	_check(gs.player_score == 3 or gs.robot_score == 3, "T1: game ended without a side reaching 3")
-	_check(not (gs.player_score == 3 and gs.robot_score == 3), "T1: both sides can't be at 3 (first-to-3 ends immediately)")
+	_check(
+		not (gs.player_score == 3 and gs.robot_score == 3),
+		"T1: both sides can't be at 3 (first-to-3 ends immediately)"
+	)

@@ -13,10 +13,10 @@ extends Area3D
 # Tunable reveal pause so players see the win/lose reaction before the next round (R21).
 @export var reveal_pause: float = 2.0
 
-@onready var _score_panel: Label3D = $"../ScorePanel"
-@onready var _robot: Node = $"../RobotPlayer"   # RobotPlayer.gd, presents the robot's card (R15)
-
 var _round_active := true
+
+@onready var _score_panel: Label3D = $"../ScorePanel"
+@onready var _robot: Node = $"../RobotPlayer"  # RobotPlayer.gd, presents the robot's card (R15)
 
 
 func _ready() -> void:
@@ -37,17 +37,19 @@ func _on_body_entered(body: Node) -> void:
 	var result: Dictionary = GameState.play_round(body.card_type)
 
 	var player_card := body
-	var robot_card = _robot.present_card(result.robot_card)   # spawn/place + return the node (R15)
+	var robot_card = _robot.present_card(result.robot_card)  # spawn/place + return the node (R15)
 
 	match result.outcome:
 		1:
 			player_card.show_smile()
-			if robot_card: robot_card.show_cry()
+			if robot_card:
+				robot_card.show_cry()
 		-1:
 			player_card.show_cry()
-			if robot_card: robot_card.show_smile()
+			if robot_card:
+				robot_card.show_smile()
 		0:
-			pass   # draw — both stay neutral/blinking (R7)
+			pass  # draw — both stay neutral/blinking (R7)
 
 	_update_score(result.player_score, result.robot_score)
 
@@ -60,7 +62,7 @@ func _on_body_entered(body: Node) -> void:
 
 func _update_score(p: int, r: int) -> void:
 	if _score_panel:
-		_score_panel.text = "You %d — %d Robot" % [p, r]   # R18
+		_score_panel.text = "You %d — %d Robot" % [p, r]  # R18
 
 
 func _begin_next_round() -> void:
@@ -71,5 +73,5 @@ func _begin_next_round() -> void:
 
 func _show_end_state(player_won: bool) -> void:
 	if _score_panel:
-		_score_panel.text = "YOU WIN!" if player_won else "ROBOT WINS"   # R19
+		_score_panel.text = "YOU WIN!" if player_won else "ROBOT WINS"  # R19
 	# Restart (R20): add a grabbable "play again" card or a timer → GameState.new_game().

@@ -22,15 +22,15 @@ enum Type { WATER, SKY, EARTH }
 #   WATER → SKY → EARTH → WATER
 # const so it is built ONCE, not allocated on every resolve() call (NFR6, no hot-path alloc).
 const BEATS := {
-	Type.WATER: Type.SKY,    # Fish beats Bird
-	Type.SKY:   Type.EARTH,  # Bird beats Dino
+	Type.WATER: Type.SKY,  # Fish beats Bird
+	Type.SKY: Type.EARTH,  # Bird beats Dino
 	Type.EARTH: Type.WATER,  # Dino beats Fish
 }
 
 # Display + sprite-lookup key (R8). Kept as Fish/Bird/Dino per the design.
 const TYPE_NAMES := {
 	Type.WATER: "Fish",
-	Type.SKY:   "Bird",
+	Type.SKY: "Bird",
 	Type.EARTH: "Dino",
 }
 
@@ -58,7 +58,7 @@ func new_game() -> void:
 	robot_score = 0
 	_build_deck()
 	player_hand = [Type.WATER, Type.SKY, Type.EARTH]
-	robot_hand  = [Type.WATER, Type.SKY, Type.EARTH]
+	robot_hand = [Type.WATER, Type.SKY, Type.EARTH]
 
 
 func _build_deck() -> void:
@@ -111,9 +111,11 @@ func play_round(player_card: Type) -> Dictionary:
 	# Defensive (edge E6): the thrown card should be in hand by construction, but if a
 	# desync ever sends one that isn't, don't corrupt state — log and proceed with resolution.
 	if not player_hand.has(player_card):
-		push_warning("play_round: %s not in player_hand %s" % [TYPE_NAMES[player_card], player_hand])
+		push_warning(
+			"play_round: %s not in player_hand %s" % [TYPE_NAMES[player_card], player_hand]
+		)
 	else:
-		player_hand.erase(player_card)   # erase removes the first matching value (fine for value array)
+		player_hand.erase(player_card)  # erase removes the first matching value (fine for value array)
 
 	var robot_card := robot_pick()
 	var outcome := resolve(player_card, robot_card)
@@ -124,15 +126,15 @@ func play_round(player_card: Type) -> Dictionary:
 	elif outcome < 0:
 		robot_score += 1
 
-	refill_hands()   # both hands back to 3 (R11). Drift is intended (R12, edge E6).
+	refill_hands()  # both hands back to 3 (R11). Drift is intended (R12, edge E6).
 
 	return {
-		"player_card":  player_card,
-		"robot_card":   robot_card,
-		"outcome":      outcome,         # 1 / -1 / 0
+		"player_card": player_card,
+		"robot_card": robot_card,
+		"outcome": outcome,  # 1 / -1 / 0
 		"player_score": player_score,
-		"robot_score":  robot_score,
-		"game_over":    game_over(),
+		"robot_score": robot_score,
+		"game_over": game_over(),
 	}
 
 

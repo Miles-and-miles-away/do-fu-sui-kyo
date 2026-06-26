@@ -29,14 +29,15 @@ extends RigidBody3D
 @export var blink_interval_max: float = 4.5
 @export var blink_hold: float = 0.15
 
-@onready var _mesh: MeshInstance3D = $MeshInstance3D
 var _mat: StandardMaterial3D
 var _blink_timer: Timer
-var _locked := false   # once the card emotes (smile/cry), stop blinking (R7)
+var _locked := false  # once the card emotes (smile/cry), stop blinking (R7)
+
+@onready var _mesh: MeshInstance3D = $MeshInstance3D
 
 
 func _ready() -> void:
-	_ensure_unique_material()   # F2 — must be per-instance or every card's face changes together
+	_ensure_unique_material()  # F2 — must be per-instance or every card's face changes together
 	_set(tex_neutral)
 	_blink_timer = Timer.new()
 	_blink_timer.one_shot = true

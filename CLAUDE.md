@@ -1,0 +1,20 @@
+# do-fu-sui-kyo — agent working notes
+
+Godot 4.7 / GDScript VR project. The logic brain (`GameState.gd`) is unit-tested
+headless; the VR layer is exercised in-headset, not by tests.
+
+## Before committing (enforced by CI — don't let it bounce)
+
+Run from the repo root and make all three clean:
+
+```sh
+gdformat .                                           # auto-format (CI checks this)
+gdlint .                                             # lint
+godot --headless --path . --script res://tests/test_game_state.gd   # tests, exit 0
+```
+
+- A `pre-commit` hook runs `gdformat` + `gdlint` automatically — install it once with
+  `pip install pre-commit && pre-commit install`. The compile-check + test suite run in
+  CI only (they need the engine).
+- gdtoolkit is pinned to `~=4.5`; keep `.pre-commit-config.yaml` and `ci.yml` in step.
+- Don't reformat or lint `addons/` — third-party code, excluded everywhere.

@@ -1,0 +1,44 @@
+# CI gate for an agent-driven repo: every push/PR must lint clean, compile clean,
+# and pass the logic suite. Three things, because each catches what the others can't:
+#   lint    — style + static issues (gdtoolkit, pure Python, no engine)
+#   compile — Godot actually parses + type-checks EVERY .gd (catches what lint can't)
+#   test    — the headless GameState suite (FSD §9, T1–T9)
+name: ci
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # ponytail: pin the minor so a new gdtoolkit rule can't turn CI red without us choosing it.
+      - run: pip install "gdtoolkit~=4.5"
+      - name: format + lint (excluding third-party addons)
+        run: |
+          files=$(find . -name '*.gd' -not -path './addons/*')
+          gdformat --check $files
+          gdlint $files
+
+  godot:
+    runs-on: ubuntu-latest
+    # ponytail: version knob — must match the editor (project.godot says 4.7).
+    # If this image tag doesn't exist yet, download the headless binary from
+    # github.com/godotengine/godot/releases instead.
+    container: barichello/godot-ci:4.7.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: compile-check every script
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            out=$(godot --headless --path . --check-only --script "res://${f#./}" 2>&1) || fail=1
+            if printf '%s' "$out" | grep -qiE 'SCRIPT ERROR|Parse Error'; then
+              echo "::error file=$f::$out"; fail=1
+            fi
+          done < <(find . -name '*.gd' -not -path './addons/*')
+          exit $fail
+      - name: test suite
+        run: godot --headless --path . --script res://tests/test_game_state.gd
