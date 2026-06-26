@@ -1,0 +1,43 @@
+; project.godot — Godot 4.7 (from-scratch project; NO template fork)
+; ─────────────────────────────────────────────────────────────────────────────
+; This IS the project's own config. It currently has just enough to (a) open in the
+; editor and (b) run the headless logic test (tests/test_game_state.gd) before the XR
+; layer exists.
+;
+; STILL TO ADD as the XR layer comes in (Stage 0, DESIGN §10):
+;   - Install the Godot XR Tools addon under addons/godot-xr-tools/ and enable it
+;     ([editor_plugins] enabled=PackedStringArray("res://addons/godot-xr-tools/plugin.cfg")).
+;   - Enable OpenXR: [xr] openxr/enabled=true ; shaders/enabled=true
+;   - Add the Meta OpenXR vendor plugin (optional/separate since Godot 4.6) for Quest deploy.
+;   - Set run/main_scene to main.tscn once the XR rig scene exists.
+; Keep [autoload] GameState and [physics] ticks=90 below regardless.
+;
+; config_version=5 is correct for all of Godot 4.x (incl. 4.7).
+
+config_version=5
+
+[application]
+
+config/name="土風水競 (do-fu-sui-kyo)"
+config/description="Single-player VR tabletop card game. See docs/DESIGN.md + docs/FSD.md."
+; No main_scene yet — headless --script does not need one. The template provides main.tscn.
+config/features=PackedStringArray("4.7", "Mobile")
+
+[autoload]
+
+; Pure-logic singleton (R23). Registered as "GameState"; scene scripts reference
+; GameState.Type / GameState.play_round(...). NOTE: headless --script runs do NOT
+; load autoloads (finding F1) — tests instantiate via load("res://GameState.gd").new().
+GameState="*res://GameState.gd"
+
+[physics]
+
+; Raise above the 60 default so a fast flat card is inside the PlayZone box for ≥1
+; tick (anti-tunneling, finding F3). 90 matches common Quest refresh; tune on device.
+common/physics_ticks_per_second=90
+
+[rendering]
+
+; Mobile renderer = Quest 3 target. Irrelevant to headless logic tests; set so the
+; project opens correctly in-editor. The template may override — defer to it.
+renderer/rendering_method="mobile"
