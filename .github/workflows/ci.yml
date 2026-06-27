@@ -33,6 +33,10 @@ jobs:
       - name: compile-check every script
         shell: bash  # container default is sh; the loop below uses process substitution
         run: |
+          # `shell: bash` runs as `bash -eo pipefail`; this loop INTENTIONALLY relies on
+          # non-zero exits (godot fails on the tolerated GameState autoload false-positive;
+          # grep exits 1 on a clean file). Turn off errexit so only `exit $fail` decides.
+          set +e
           fail=0
           while IFS= read -r f; do
             out=$(godot --headless --path . --check-only --script "res://${f#./}" 2>&1)
