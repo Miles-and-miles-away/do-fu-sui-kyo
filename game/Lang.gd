@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Every piece of UI text in the game is a t(english, japanese) call; flip `jp` and
 # emit `changed` and each panel re-renders itself. No translation tables, no locale
-# files — there are exactly two strings per label and two languages (NFR: YAGNI).
+# files — there are exactly two strings per label and two languages.
 extends Node
 
 signal changed

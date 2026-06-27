@@ -1,13 +1,11 @@
-# game/PlayZone.gd — STUB (wired in Stage 2/3; DESIGN §7, FSD R3/R7/R18–R22).
+# game/PlayZone.gd — the round driver.
 # ─────────────────────────────────────────────────────────────────────────────
 # Attach to the PlayZone Area3D. Fires once when a thrown card lands, calls the brain
 # (GameState.play_round), drives the two cards' faces, updates score, and paces the round.
 #
-# ⚠️ STUB: node paths ($"../ScorePanel" etc.) resolve once the scene is authored.
-#
-# Encodes E10 (single-fire latch) and references finding F3 (anti-tunnel collider — set
-# on the Area3D's CollisionShape3D in-editor, NOT here): make the box generous & not
-# paper-thin, enable continuous_cd on cards, raise physics ticks (done in project.godot).
+# Anti-tunnel collider is set on the Area3D's CollisionShape3D in-editor, NOT here: the box
+# is generous & not paper-thin, continuous_cd is on for cards, and physics ticks are raised
+# (in project.godot) — so a fast thrown card can't pass through the thin trigger in one step.
 extends Area3D
 
 # Floated in the middle as the win celebration (player-victory only). The circle-cropped variant
@@ -15,7 +13,7 @@ extends Area3D
 # mask doesn't crop the title off it.
 const ICON := preload("res://art/icon_circle.png")
 
-# Time the robot gets to reach out and lay its card down before the win/lose verdict (R21).
+# Time the robot gets to reach out and lay its card down before the win/lose verdict.
 # Must be ≥ RobotPlayer reach+wind+flight (default 1.08) so the thrown card has landed.
 @export var settle_time: float = 1.1
 # After the verdict faces show, how long to view them before the next round.
@@ -40,7 +38,7 @@ var _party: Node3D
 
 @onready var _game_root: Node = get_parent()  # GameRoot.gd — owns hand spawning/clearing
 @onready var _score_panel: Label3D = $"../ScorePanel"
-@onready var _robot: Node = $"../RobotPlayer"  # RobotPlayer.gd, presents the robot's card (R15)
+@onready var _robot: Node = $"../RobotPlayer"  # RobotPlayer.gd, presents the robot's card
 @onready var _felt_mat: ShaderMaterial = $"../FeltCircle".mesh.material  # gilds on a good landing
 @onready var _xr_origin: XROrigin3D = $"../../XRRig/XROrigin3D"
 
@@ -64,7 +62,7 @@ func _ready() -> void:
 
 # Called by GameRoot when a thrown player card comes to rest ≥50% inside the felt circle.
 func resolve(card: Node) -> void:
-	# Single resolution per round: ignore further landings until the next round (R3, R22, E10).
+	# Single resolution per round: ignore further landings until the next round.
 	if not _round_active:
 		return
 	# Only react to cards (they expose show_smile()); ignore stray bodies.
@@ -74,7 +72,7 @@ func resolve(card: Node) -> void:
 	var gen := _gen  # if Restart bumps this mid-round, the awaits below bail out
 	_set_target_lit(true)  # card's on the felt — gild the rim to confirm a good landing
 
-	# The brain does ALL rules; we only translate its result to visuals (R23/NFR8).
+	# The brain does ALL rules; we only translate its result to visuals.
 	var result: Dictionary = GameState.play_round(card.card_type)
 
 	var player_card := card
@@ -85,7 +83,7 @@ func resolve(card: Node) -> void:
 	var robot_pos := Vector3(centre.x + card_spread, table_surface_y, centre.z)
 	var robot_card = _robot.present_card(result.robot_card, robot_pos)
 
-	# Wait for the robot to finish laying its card, THEN snap it flat & flip the verdict (R21).
+	# Wait for the robot to finish laying its card, THEN snap it flat & flip the verdict.
 	# settle_time must cover the robot's reach+wind+throw flight (RobotPlayer reach/wind/flight times).
 	await get_tree().create_timer(settle_time).timeout
 	if not is_instance_valid(self) or not is_instance_valid(player_card) or gen != _gen:
@@ -158,7 +156,7 @@ func _update_score(p: int, r: int) -> void:
 	_score = Vector2i(p, r)
 	_ended = 0
 	if _score_panel:
-		# Scoreline in the chosen language (おぬし = playful archaic "you"). (R18)
+		# Scoreline in the chosen language (おぬし = playful archaic "you").
 		_score_panel.text = Lang.t("You %d : %d Robot" % [p, r], "おぬし %d : %d ロボット" % [p, r])
 		_score_panel.modulate = Color.WHITE  # clear any held end-game tint on restart
 
@@ -286,7 +284,7 @@ func _celebrate() -> void:
 # face. Spun around Y in the celebration so both faces show; the edge stays visible side-on so it
 # never blinks out. ICON's transparent corners read as a round coin sitting on the gold cap.
 func _build_coin() -> Node3D:
-	var r := 0.25  # coin radius → 0.5 m across, same as the old flat icon
+	var r := 0.25  # coin radius → 0.5 m across
 	var thick := 0.024
 	var coin := Node3D.new()
 	# Gold body — a flat cylinder turned 90° so its caps point front/back (at the player), edge round.
@@ -346,7 +344,7 @@ func _stop_celebration() -> void:
 
 func _begin_next_round() -> void:
 	# refill_hands() already ran inside play_round(); GameRoot clears the consumed cards
-	# (player + robot, via the "card" group) and respawns the player's refreshed hand (R11).
+	# (player + robot, via the "card" group) and respawns the player's refreshed hand.
 	if _game_root and _game_root.has_method("deal_player_hand"):
 		_game_root.deal_player_hand()
 	_robot.reset_face()  # clear last round's smile/tear
@@ -355,7 +353,7 @@ func _begin_next_round() -> void:
 
 
 func _show_end_state(player_won: bool) -> void:
-	# End banner (R19). お前 = casual "you". _ended drives a re-render on a language flip.
+	# End banner. お前 = casual "you". _ended drives a re-render on a language flip.
 	_ended = 1 if player_won else 2
 	_render_banner()
 	_flourish(Color(0.4, 1.0, 0.5) if player_won else Color(1.0, 0.4, 0.4), 1.8, 60, true)

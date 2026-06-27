@@ -12,7 +12,7 @@
 # The head continuously look_at()s the player for a spark of life.
 # Built procedurally on purpose: no .tscn/UID wiring, so it survives the headless export loop.
 #
-# ⚠️ Exercised in-headset (T15), not by unit tests. Geometry/timing are calibration knobs.
+# ⚠️ Exercised in-headset, not by unit tests. Geometry/timing are calibration knobs.
 extends Node3D
 
 # ── Placement (world coords; RobotPlayer sits at the scene origin) ─────────────
@@ -75,7 +75,7 @@ func _on_difficulty_changed(level: int) -> void:
 		_eyes.mesh = _eyes_round if level == GameState.Difficulty.EASY else _eyes_square
 
 
-# Head tracks the player every frame — one look_at on one node, negligible cost (NFR6).
+# Head tracks the player every frame — one look_at on one node, negligible cost.
 # ponytail: raw look_at, no smoothing; add a lerp only if it snaps too hard in-headset.
 func _process(_delta: float) -> void:
 	if not _head:
@@ -85,7 +85,7 @@ func _process(_delta: float) -> void:
 		_head.look_at(cam.global_position, Vector3.UP)  # eyes sit on the head's -Z face
 
 
-# ── Called by PlayZone during resolution (R15) ───────────────────────────────
+# ── Called by PlayZone during resolution ─────────────────────────────────────
 # `t` is 0/1/2 (== GameState.Type). `lay_pos` is where the card should end up on the table.
 # Returns the card node immediately so PlayZone can drive its face after the settle window;
 # the reach/throw animation plays out asynchronously and PlayZone snaps the card flat at settle.
@@ -142,7 +142,7 @@ func catch_in_head(card: Node) -> void:
 	_head_card = card
 
 
-# Face expressions, mirroring the robot card (PlayZone calls these on resolution, R7/R15).
+# Face expressions, mirroring the robot card (PlayZone calls these on resolution).
 func show_win() -> void:  # robot won → smile, no tear
 	if _mouth:
 		_mouth.mesh = _mouth_smile
@@ -237,10 +237,10 @@ func _build_body() -> void:
 		self, torso_c - Vector3(0.0, 0.275, 0.0), torso_c + Vector3(0.0, 0.275, 0.0), body_radius
 	)
 
-	# Neck — a thin wireframe cylinder (was a single wire).
+	# Neck — a thin wireframe cylinder.
 	_cyl_between(self, o + Vector3(0.0, 1.12, -0.02), o + Vector3(0.0, 1.24, 0.0), limb_radius)
 
-	# Deck is invisible now (its box was removed); deck_point is just the throw origin.
+	# Deck has no geometry; deck_point is just the throw origin.
 
 	# Head — its own pivot at the head centre so look_at() (in _process) swings it to face the
 	# player. Geometry is head-local; EYES sit on the -Z face because look_at points -Z at the
@@ -288,7 +288,7 @@ func _build_body() -> void:
 	_head.add_child(_horns)
 
 	# Both arms — shoulder pivots aimed via look_at, each with an elbow joint child so the forearm
-	# can bend for the victory dance (rest pose = elbow straight, identical to the old rigid arm).
+	# can bend for the victory dance (rest pose = elbow straight).
 	# Idle aim is down-forward, never straight down (vertical would break look_at's up vector).
 	_shoulder = o + Vector3(0.24, 1.05, -0.02)
 	_rest_aim = _shoulder + Vector3(0.0, -0.5, 0.25)

@@ -1,17 +1,17 @@
-# game/GameRoot.gd — the ONE logic→scene bridge (DESIGN §4/§7/§10, ASSETS §3).
+# game/GameRoot.gd — the ONE logic→scene bridge.
 # ─────────────────────────────────────────────────────────────────────────────
 # GameState is headless and holds only Array[Type]. THIS turns that data into
 # grabbable Card.tscn instances at the hand slots, and clears them between rounds.
 #
 # It is also the single Card FACTORY: make_card(type) is used by both the player
-# deal here AND by RobotPlayer — so the 12 face frames are assigned in ONE place
+# deal here AND by RobotPlayer — so the face frames are assigned in ONE place
 # (these exports), never duplicated. One source = no neutral/smile mismatch bugs.
 #
-# Wired in Stage 2 (ASSETS §7). Exercised in-headset, not by unit tests.
+# Exercised in-headset, not by unit tests.
 extends Node3D
 
 # Every spawned card joins this group so clear_table() can free the whole table at once,
-# whoever spawned it (player deal or robot). StringName literal = no per-call alloc (NFR6).
+# whoever spawned it (player deal or robot). StringName literal = no per-call alloc.
 const CARD_GROUP := &"card"
 
 # Card-landing behaviour (calibrate against the table in main.tscn).
@@ -32,7 +32,7 @@ const EDGE_REST_CEIL_Y := TABLE_REST_Y + 0.1
 # is generous without snagging cards that merely pass nearby. Tune in-headset if it feels off.
 const HEAD_CATCH_RADIUS := 0.2  # HARD easter egg: a card this close to the robot head sticks in it
 
-# Card.tscn + the 18 frames grouped per type (R8). Assign ONCE in the inspector here.
+# Card.tscn + the frames grouped per type. Assign ONCE in the inspector here.
 # Canonical order (matches docs/SPRITES.md §8 + tools/sprites.py EXPRESSIONS):
 #   [neutral, blink, determined, determined_blink, smile, cry]
 @export var card_scene: PackedScene
@@ -54,7 +54,7 @@ func _ready() -> void:
 
 
 # Watch each free (thrown, not held) player card and decide where it ends up. Cheap — a
-# handful of cards, simple checks (NFR6). Cards heading for the felt enter PlayZone first
+# handful of cards, simple checks. Cards heading for the felt enter PlayZone first
 # and get frozen there, so they're already skipped by the `freeze` guard.
 # ponytail: snap-to-rest instead of trusting thin-card physics — fixes "sinks into the table"
 # AND gives grabbable, re-throwable cards in one place.
@@ -97,7 +97,7 @@ func _physics_process(_delta: float) -> void:
 		# It's settled — a normal landing or a card balanced on an edge. Inside the felt circle it's a
 		# play: lay it flat (a smooth ease-out, frozen the instant we catch it so it can't sink
 		# through). Anywhere else — outside the circle, or fallen to the floor — it missed → fly it
-		# home (R-miss recovery).
+		# home (miss recovery).
 		if Vector2(pos.x, pos.z).distance_to(FELT_CENTRE) < FELT_RADIUS:
 			_rest_on_table(card)
 		else:
@@ -115,7 +115,7 @@ func _rest_on_table(card: CardFace) -> void:
 	_play_zone.resolve(card)
 
 
-# A card that fell off the table flies back up to its hovering slot (R-miss recovery).
+# A card that fell off the table flies back up to its hovering slot (miss recovery).
 # freeze = true makes it kinematic (follows the tween) AND keeps the monitor from re-processing
 # it — so no "returning" flag is needed; it lands hovering and grabbable.
 func _return_to_slot(card: RigidBody3D) -> void:
@@ -156,7 +156,7 @@ func _frames_for(t: int) -> Array[Texture2D]:
 		1:
 			return frames_sky
 		_:
-			return frames_earth  # 2 = earth; cards are always 0/1/2 (NFR5)
+			return frames_earth  # 2 = earth; cards are always 0/1/2
 
 
 # ── Table presentation ───────────────────────────────────────────────────────
@@ -168,7 +168,7 @@ func clear_table() -> void:
 		c.queue_free()
 
 
-# Rebuild the player's visible hand from GameState.player_hand at the slots (R1, R11).
+# Rebuild the player's visible hand from GameState.player_hand at the slots.
 # Called on new game and after each round (play_round already refilled the data).
 func deal_player_hand() -> void:
 	clear_table()
@@ -182,6 +182,6 @@ func deal_player_hand() -> void:
 		# below leaves it alone.
 		card.set_meta("home", _slots[i].global_transform)
 		# Rest at the slot instead of falling off a floating anchor. XRToolsPickable
-		# unfreezes the card on release so the throw still flies (R1/R2).
+		# unfreezes the card on release so the throw still flies.
 		# ponytail: freeze-at-anchor; swap to an XR Tools snap_zone only if it feels loose in-headset.
 		card.freeze = true

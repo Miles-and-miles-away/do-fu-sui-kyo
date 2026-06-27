@@ -1,7 +1,7 @@
-; game/xr_rig.tscn — thin, conventional XR Tools rig (FSD R24, ASSETS §4.1).
+; game/xr_rig.tscn — thin, conventional XR Tools rig.
 ; StartXR boots OpenXR; XROrigin3D + XRCamera3D + two XRController3D, one FunctionPickup
-; per controller (the grabber, R1/R2). NO game logic lives here (R24). Instanced by BOTH
-; bringup.tscn (T10) and main.tscn so the rig is authored once.
+; per controller (the grabber). NO game logic lives here. Instanced by BOTH
+; bringup.tscn and main.tscn so the rig is authored once.
 ; ⚠️ Open in Godot 4.7 once to let it assign UIDs + confirm the addon scenes resolve.
 [gd_scene load_steps=8 format=3]
 

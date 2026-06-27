@@ -35,7 +35,7 @@ func _ready() -> void:
 	# fingertip poke (or the laser) lands easily. ────────────────────────────────────────
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	# 306 wide (was 226): three difficulty buttons across need ~95px each or their JP/EN labels
+	# 306 wide: three difficulty buttons across need ~95px each or their JP/EN labels
 	# spill past the right edge. Measured headless against the 840×510 viewport (probe_hud.gd).
 	col.offset_left = -330
 	col.offset_right = -24

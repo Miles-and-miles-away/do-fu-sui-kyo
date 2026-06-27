@@ -1,5 +1,5 @@
-; game/Card.tscn — one per physical card (ASSETS §4.2). Root extends XRToolsPickable via
-; CardFace.gd, so the SAME node is grabbable/throwable AND owns its face (DESIGN §4/§6).
+; game/Card.tscn — one per physical card. Root extends XRToolsPickable via
+; CardFace.gd, so the SAME node is grabbable/throwable AND owns its face.
 ; Tuning here (mass, collider, impulse) is the on-device calibration surface — start from
 ; these and adjust in-headset (the saucer.tscn in the addon demo is the reference for feel).
 ; ⚠️ Open in Godot 4.7 once to assign UIDs + confirm CardFace resolves the pickable base.
@@ -10,15 +10,15 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_card"]
 ; Card-shaped face (10cm × 15cm) with a fat 3cm collider depth — the quad stays thin but the
 ; grab volume is chunky so a pinch lands on it easily in-headset. Also helps anti-tunnel: CCD +
-; this depth keeps the card inside the PlayZone box for ≥1 physics tick (finding F3).
+; this depth keeps the card inside the PlayZone box for ≥1 physics tick.
 size = Vector3(0.1, 0.15, 0.03)
 
 [sub_resource type="QuadMesh" id="QuadMesh_card"]
 size = Vector2(0.1, 0.15)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_card"]
-; Per-instance (resource_local_to_scene) so swapping one card's face never touches another
-; (finding F2). Unshaded + alpha-scissor = crisp 2D face on a 3D quad. CardFace also enforces
+; Per-instance (resource_local_to_scene) so swapping one card's face never touches another.
+; Unshaded + alpha-scissor = crisp 2D face on a 3D quad. CardFace also enforces
 ; these at runtime; the texture is assigned by GameRoot from the per-type frames.
 resource_local_to_scene = true
 transparency = 2
@@ -28,7 +28,7 @@ texture_filter = 0
 [node name="Card" type="RigidBody3D"]
 ; Mirror the addon's working pickable collision (layer 3 = card; mask = world). XR Tools
 ; swaps the held card to a no-collide layer automatically, so PlayZone only fires on a
-; thrown (released) card, not a held one (ASSETS §6).
+; thrown (released) card, not a held one.
 collision_layer = 4
 collision_mask = 196615
 mass = 0.3

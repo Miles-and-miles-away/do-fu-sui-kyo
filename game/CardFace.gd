@@ -1,27 +1,24 @@
-# game/CardFace.gd — STUB (wired in Stage 2; DESIGN §6, FSD R5–R8).
+# game/CardFace.gd — the card's face + grab behaviour.
 # ─────────────────────────────────────────────────────────────────────────────
 # Attach to a Card (RigidBody3D). Holds the card's type + 6 expression frames and runs the
 # blink loop. At rest it blinks neutral; while HELD (grabbed/selected) it shows a determined
 # face and blinks that. Faces are a 2D sprite swap on the material's albedo_texture — NO
-# rigging (R5). (determined/determined_blink extend FSD R5's four frames — see docs/SPRITES.md.)
+# rigging (the six frames are documented in docs/SPRITES.md).
 #
-# ⚠️ This is a STUB: it references a child `MeshInstance3D` that exists once Card.tscn
-# is authored. It parses on its own but is exercised in-headset, not by unit tests
-# (testing the VR/sprite layer would be anti-YAGNI — see _dev_notes/00 §4).
+# Exercised in-headset, not by unit tests (the VR/sprite layer isn't worth unit-testing).
 #
-# Encodes finding F2 (per-instance material) and E13 (await-after-free guard).
 # Root extends XRToolsPickable (a RigidBody3D) so ONE node is grabbable/throwable AND owns
-# its face; PlayZone reads card_type / show_smile() off the body entering the zone (DESIGN §6).
+# its face; PlayZone reads card_type / show_smile() off the body entering the zone.
 class_name CardFace  # named so the GameRoot card monitor can hold a typed handle
 extends "res://addons/godot-xr-tools/objects/pickable.gd"  # XRToolsPickable, a RigidBody3D
 
 # Card type as 0/1/2 — SAME ordering as GameState.Type (WATER=0, SKY=1, EARTH=2).
-# Using @export_enum int (not `: GameState.Type`) so this stub compiles standalone and
-# avoids autoload-name-as-type fragility; PlayZone/GameState read it as a plain int.
+# Using @export_enum int (not `: GameState.Type`) to avoid autoload-name-as-type
+# fragility; PlayZone/GameState read it as a plain int.
 @export_enum("Water_Fish", "Sky_Bird", "Earth_Dino") var card_type: int = 0
 
-# The 6 frames (R5/R8 + the determined pair). Assign in the inspector or via GameRoot's
-# per-type arrays. blink = neutral eyes-closed; determined_blink = determined eyes-closed.
+# The 6 frames (the four expressions + the determined pair). Assign in the inspector or via
+# GameRoot's per-type arrays. blink = neutral eyes-closed; determined_blink = determined, closed.
 @export var tex_neutral: Texture2D
 @export var tex_blink: Texture2D
 @export var tex_smile: Texture2D
@@ -29,14 +26,14 @@ extends "res://addons/godot-xr-tools/objects/pickable.gd"  # XRToolsPickable, a 
 @export var tex_determined: Texture2D  # shown while the card is held/selected
 @export var tex_determined_blink: Texture2D  # determined, eyes closed (blink while held)
 
-# Tunable blink cadence (R6, FSD §5.1 — @export so it's venue-calibratable in-editor).
+# Tunable blink cadence (@export so it's venue-calibratable in-editor).
 @export var blink_interval_min: float = 1.8
 @export var blink_interval_max: float = 2.2
 @export var blink_hold: float = 0.15
 
 var _mat: StandardMaterial3D
 var _blink_timer: Timer
-var _locked := false  # once the card emotes (smile/cry), stop blinking (R7)
+var _locked := false  # once the card emotes (smile/cry), stop blinking
 # Current blink pair: rest = neutral/blink, held = determined/determined_blink.
 var _open_tex: Texture2D
 var _closed_tex: Texture2D
@@ -46,7 +43,7 @@ var _closed_tex: Texture2D
 
 func _ready() -> void:
 	super()  # CRITICAL: let XRToolsPickable collect grab points / init grab state (else throw breaks)
-	_ensure_unique_material()  # F2 — must be per-instance or every card's face changes together
+	_ensure_unique_material()  # must be per-instance or every card's face changes together
 	_open_tex = tex_neutral
 	_closed_tex = tex_blink
 	_apply_texture(_open_tex)
@@ -60,9 +57,9 @@ func _ready() -> void:
 	dropped.connect(_on_dropped)
 
 
-# F2: guarantee THIS card owns its material. If a surface-override is present, duplicate it;
+# Guarantee THIS card owns its material. If a surface-override is present, duplicate it;
 # else duplicate the mesh's active material into a per-instance override. Without this, the
-# material is shared by reference and swapping one face swaps ALL cards (edge E11).
+# material is shared by reference and swapping one face swaps ALL cards.
 func _ensure_unique_material() -> void:
 	var src: Material = _mesh.get_surface_override_material(0)
 	if src == null:
@@ -90,7 +87,7 @@ func _do_blink() -> void:
 	if _locked:
 		return
 	_apply_texture(_closed_tex)
-	# SceneTreeTimer await — guard against the node being freed mid-await (edge E13).
+	# SceneTreeTimer await — guard against the node being freed mid-await.
 	await get_tree().create_timer(blink_hold).timeout
 	if not is_instance_valid(self) or _locked:
 		return
@@ -117,7 +114,7 @@ func _on_dropped(_pickable: Node) -> void:
 	_apply_texture(_open_tex)
 
 
-# Called by PlayZone on resolution (R7). Locking stops the blink loop.
+# Called by PlayZone on resolution. Locking stops the blink loop.
 func show_smile() -> void:
 	_locked = true
 	_apply_texture(tex_smile)

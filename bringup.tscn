@@ -1,7 +1,7 @@
-; bringup.tscn — Stage 0 toolchain proof (FSD T10, DESIGN §10). Rig + one grabbable cube,
+; bringup.tscn — toolchain proof. Rig + one grabbable cube,
 ; NO game code. Deploy THIS to the Quest first to prove OpenXR + rig + grab + export/deploy
 ; work, before debugging any game logic. "Never debug your code and the toolchain together."
-; Temporarily set run/main_scene to res://bringup.tscn (or run this scene with F6) for T10.
+; Temporarily set run/main_scene to res://bringup.tscn (or run this scene with F6) to check it.
 ; ⚠️ Open in Godot 4.7 once to assign UIDs + confirm the addon resolves.
 [gd_scene load_steps=5 format=3]
 
@@ -31,7 +31,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
 shape = SubResource("BoxShape3D_floor")
 
 ; A grabbable cube floating at chest height (frozen so it rests; XRToolsPickable unfreezes
-; it on release so you can throw it). Layer 3 (=4) is what FunctionPickup grabs (ASSETS §6).
+; it on release so you can throw it). Layer 3 (=4) is what FunctionPickup grabs.
 [node name="GrabCube" type="RigidBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -0.35)
 collision_layer = 4
