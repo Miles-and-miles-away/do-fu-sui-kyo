@@ -10,6 +10,7 @@ uniform float felt_radius = 0.25;  // keep in step with the disc mesh + PlayZone
 uniform float grain = 0.07;  // fabric fibre speckle
 uniform float sheen = 0.16;  // centre plush glow
 uniform float rim = 0.55;  // darkening toward the edge (inset look)
+uniform float active = 0.0;  // 0..1 — PlayZone lights this when a card lands; gilds the rim
 
 varying vec3 v_local;
 
@@ -31,7 +32,13 @@ void fragment() {
 	float g = hash(floor(v_local.xz * 900.0));
 	float s = smoothstep(1.0, 0.0, r) * sheen;  // centre sheen
 	float e = smoothstep(0.82, 1.0, r) * rim;  // edge inset
-	ALBEDO = felt_color * (1.0 - grain * g) * (1.0 + s) * (1.0 - e);
-	ROUGHNESS = 0.95;  // matte, fabric-like
-	SPECULAR = 0.08;
+	vec3 base = felt_color * (1.0 - grain * g) * (1.0 + s) * (1.0 - e);
+	// Gilded perimeter when active: a shiny gold band on the outer rim signals "card in place".
+	float ring = smoothstep(0.8, 0.9, r) * active;
+	vec3 gold = vec3(1.0, 0.78, 0.28);
+	ALBEDO = mix(base, gold, ring);
+	METALLIC = ring;  // polished metal at the rim only when lit
+	ROUGHNESS = mix(0.95, 0.12, ring);  // matte felt → mirror gold
+	SPECULAR = mix(0.08, 0.9, ring);
+	EMISSION = gold * ring * 0.4;  // a touch of glow so it reads as "shiny" even in dim light
 }

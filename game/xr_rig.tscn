@@ -28,6 +28,7 @@ tracker = &"left_hand"
 
 [node name="FunctionPickup" parent="XROrigin3D/LeftHand" instance=ExtResource("2_pickup")]
 pickup_axis_action = "trigger"
+impulse_factor = 1.6
 
 [node name="LeftHandModel" parent="XROrigin3D/LeftHand" instance=ExtResource("3_lhand")]
 
@@ -36,5 +37,6 @@ tracker = &"right_hand"
 
 [node name="FunctionPickup" parent="XROrigin3D/RightHand" instance=ExtResource("2_pickup")]
 pickup_axis_action = "trigger"
+impulse_factor = 1.6
 
 [node name="RightHandModel" parent="XROrigin3D/RightHand" instance=ExtResource("4_rhand")]

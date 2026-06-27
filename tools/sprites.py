@@ -39,12 +39,90 @@ GRID_COLS, GRID_ROWS = 2, 3  # `slice` sheet layout; COLS*ROWS must equal len(EX
 # Solid card background painted behind each (ideally transparent) character, per critter.
 # Override per run with --bg "#rrggbb". One uniform colour per card = no padding mismatch.
 CARD_BG = {
-    "fish": (176, 223, 227, 255),  # soft aqua
-    "bird": (188, 214, 240, 255),  # pale sky-blue
-    "dino": (191, 216, 182, 255),  # soft sage-green
+    "fish": (176, 223, 227, 255),  # light aqua
+    "bird": (238, 225, 150, 255),  # light yellow
+    "dino": (175, 210, 165, 255),  # light green
+}
+# Deeper per-critter shade for the card border + label-box frames (matches CARD_BG family).
+FRAME = {
+    "fish": (95, 160, 205, 255),  # deeper blue
+    "bird": (240, 180, 70, 255),  # deeper yellow
+    "dino": (90, 160, 95, 255),  # deeper green
 }
 DEFAULT_SIZE = (512, 768)  # 2:3 portrait, matching the Card.tscn quad (0.1 × 0.15 m)
 ASPECT = 2 / 3
+
+# ── frame (border + element label boxes) ─────────────────────────────────────
+# Element labels per critter: (kanji, english) — the 土風水 of the title 土風水競.
+LABELS = {
+    "fish": ("水", "WATER"),  # WATER
+    "bird": ("風", "AIR"),  # SKY / wind
+    "dino": ("土", "EARTH"),  # EARTH
+}
+BOX_FILL = (255, 255, 255, 255)  # white label-box interior
+INK = (0, 0, 0, 255)  # black label text (DotGothic16)
+# Geometry as fractions of the card so it survives a non-512×768 size. Measured off the
+# hand-framed bird_blink.png reference (512×768): border 15px, boxes 233×118 at y32 / y617.
+F_BORDER = 0.0293  # frame stroke ≈ 15px
+F_BOX_W, F_BOX_H = 0.455, 0.1536  # label box ≈ 233×118
+F_BOX_MARGIN = 0.0417  # gap from card edge to box ≈ 32px (top) / 33px (bottom)
+F_RADIUS = 0.039  # corner radius ≈ 20px
+FONT_PATH = Path(__file__).resolve().parent.parent / "art/fonts/DotGothic16-Regular.ttf"
+
+
+def _fit_font(text: str, max_w: int, max_h: int, font_path: Path) -> ImageFont.FreeTypeFont:
+    # Largest DotGothic16 size whose text fits within (max_w, max_h). Binary-ish linear scan;
+    # 18 cards × tiny range = not worth bisecting.
+    size = 8
+    last = ImageFont.truetype(str(font_path), size)
+    while size < max_h:
+        f = ImageFont.truetype(str(font_path), size)
+        l, t, r, b = f.getbbox(text)
+        if (r - l) > max_w or (b - t) > max_h:
+            break
+        last, size = f, size + 2
+    return last
+
+
+def _label_box(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: str, bw: int, rad: int, frame: tuple) -> None:
+    draw.rounded_rectangle(box, radius=rad, fill=BOX_FILL, outline=frame, width=bw)
+    inner_w = (box[2] - box[0]) - 2 * bw - 8
+    inner_h = (box[3] - box[1]) - 2 * bw - 8
+    font = _fit_font(text, inner_w, inner_h, FONT_PATH)
+    l, t, r, b = draw.textbbox((0, 0), text, font=font)
+    cx, cy = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2
+    draw.text((cx - (r + l) // 2, cy - (b + t) // 2), text, fill=INK, font=font)
+
+
+def frame_cards(folder: Path, out_dir: Path) -> list[Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for name in expected_names():
+        src = folder / name
+        if not src.exists():
+            continue
+        critter = name.split("_", 1)[0]
+        kanji, english = LABELS.get(critter, ("?", critter.upper()))
+        frame = FRAME.get(critter, (116, 167, 254, 255))
+        with Image.open(src) as im:
+            im = im.convert("RGBA")
+            W, H = im.size
+            bw = max(1, round(W * F_BORDER))
+            rad = round(W * F_RADIUS)
+            box_w, box_h = round(W * F_BOX_W), round(H * F_BOX_H)
+            margin = round(H * F_BOX_MARGIN)
+            x0 = (W - box_w) // 2
+            # outer card border: square outer corners (fills to image edge — no corner gap),
+            # rounded inner edge. Paint the frame colour everywhere outside an inset rounded rect.
+            mask = Image.new("L", (W, H), 255)
+            ImageDraw.Draw(mask).rounded_rectangle((bw, bw, W - bw - 1, H - bw - 1), radius=rad, fill=0)
+            im.paste(Image.new("RGBA", (W, H), frame), (0, 0), mask)
+            draw = ImageDraw.Draw(im)
+            _label_box(draw, (x0, margin, x0 + box_w, margin + box_h), kanji, bw, rad, frame)
+            _label_box(draw, (x0, H - margin - box_h, x0 + box_w, H - margin), english, bw, rad, frame)
+            im.save(out_dir / name)
+        written.append(out_dir / name)
+    return written
 
 # Per-critter palette: (background, head, ink). Placeholders only — real art replaces these.
 PALETTE = {
@@ -269,6 +347,10 @@ def main(argv: list[str]) -> int:
     p.add_argument("--out", type=Path, default=None, help="output dir (default: in place)")
     p.add_argument("--bg", type=_parse_color, default=None, help='card bg "#rrggbb" (else per-critter)')
 
+    p = sub.add_parser("frame", help="add the blue border + kanji/english label boxes to baked cards")
+    p.add_argument("dir", type=Path)
+    p.add_argument("--out", type=Path, default=None, help="output dir (default: in place)")
+
     p = sub.add_parser("check", help="validate a folder of 18 faces; exit 1 on any problem")
     p.add_argument("dir", type=Path)
 
@@ -300,6 +382,12 @@ def main(argv: list[str]) -> int:
         ok, problems = check(out)
         print("check: OK" if ok else "check FAILED:\n  " + "\n  ".join(problems))
         return 0 if ok else 1
+
+    if args.cmd == "frame":
+        out = args.out if args.out else args.dir
+        written = frame_cards(args.dir, out)
+        print(f"framed {len(written)} → {out}/")
+        return 0
 
     if args.cmd == "check":
         ok, problems = check(args.dir)

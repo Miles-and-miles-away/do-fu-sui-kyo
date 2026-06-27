@@ -8,9 +8,10 @@
 [ext_resource type="Script" path="res://game/CardFace.gd" id="1_cardface"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_card"]
-; Thin, card-shaped (10cm × 15cm × 6mm). Not paper-thin: CCD + this depth keeps the card
-; inside the PlayZone box for ≥1 physics tick (finding F3, anti-tunnel).
-size = Vector3(0.1, 0.15, 0.006)
+; Card-shaped face (10cm × 15cm) with a fat 3cm collider depth — the quad stays thin but the
+; grab volume is chunky so a pinch lands on it easily in-headset. Also helps anti-tunnel: CCD +
+; this depth keeps the card inside the PlayZone box for ≥1 physics tick (finding F3).
+size = Vector3(0.1, 0.15, 0.03)
 
 [sub_resource type="QuadMesh" id="QuadMesh_card"]
 size = Vector2(0.1, 0.15)
@@ -31,6 +32,9 @@ texture_filter = 0
 collision_layer = 4
 collision_mask = 196615
 mass = 0.3
+; Lighter-than-real gravity so a thrown card floats and carries to the felt instead of
+; dropping at your feet — easier to throw. Tune with FunctionPickup.impulse_factor (xr_rig).
+gravity_scale = 0.6
 continuous_cd = true
 freeze_mode = 1
 script = ExtResource("1_cardface")

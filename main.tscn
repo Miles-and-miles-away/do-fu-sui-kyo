@@ -8,6 +8,7 @@
 [ext_resource type="Shader" uid="uid://cs7g761thwnwu" path="res://game/wall.gdshader" id="6_wall"]
 [ext_resource type="Shader" path="res://game/wood.gdshader" id="28_wood"]
 [ext_resource type="Shader" path="res://game/felt.gdshader" id="29_felt"]
+[ext_resource type="FontFile" path="res://art/fonts/DotGothic16-Regular.ttf" id="30_font"]
 [ext_resource type="Texture2D" uid="uid://vue50gm4b6lx" path="res://art/fish_neutral.png" id="10_fn"]
 [ext_resource type="Texture2D" uid="uid://bpspsbwi68k8s" path="res://art/fish_blink.png" id="11_fb"]
 [ext_resource type="Texture2D" uid="uid://c2bgkvi31un4r" path="res://art/fish_determined.png" id="12_fd"]
@@ -139,13 +140,13 @@ frames_earth = Array[Texture2D]([ExtResource("22_dn"), ExtResource("23_db"), Ext
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0.1)
 
 [node name="Slot0" type="Marker3D" parent="GameRoot/PlayerHandAnchors" unique_id=1800846635]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 1.1, -0.15)
+transform = Transform3D(1, 0, 0, 0, 0.8660254, 0.5, 0, -0.5, 0.8660254, -0.2, 1.1, -0.15)
 
 [node name="Slot1" type="Marker3D" parent="GameRoot/PlayerHandAnchors" unique_id=1844155677]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -0.15)
+transform = Transform3D(1, 0, 0, 0, 0.8660254, 0.5, 0, -0.5, 0.8660254, 0, 1.1, -0.15)
 
 [node name="Slot2" type="Marker3D" parent="GameRoot/PlayerHandAnchors" unique_id=930462826]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.1, -0.15)
+transform = Transform3D(1, 0, 0, 0, 0.8660254, 0.5, 0, -0.5, 0.8660254, 0.2, 1.1, -0.15)
 
 [node name="PlayZone" type="Area3D" parent="GameRoot" unique_id=866281486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -0.6)
@@ -165,7 +166,8 @@ script = ExtResource("4_robot")
 [node name="ScorePanel" type="Label3D" parent="GameRoot" unique_id=371993185]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, -1.45)
 pixel_size = 0.003
-text = "You 0 — 0 Robot"
+text = "You 0 : 0 Robot"
+font = ExtResource("30_font")
 font_size = 64
 
 ; The red felt target disc — sits on the table surface (y≈0.70) directly under the PlayZone
