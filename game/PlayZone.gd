@@ -93,7 +93,7 @@ func _on_body_entered(body: Node) -> void:
 	if result.game_over:
 		_show_end_state(result.player_score >= 3)
 	else:
-		_play_stinger(won)  # round win/lose sound every round; game-over plays its own below
+		_play_stinger(result.outcome)  # win/lose/draw each round; game-over plays its own below
 		await get_tree().create_timer(reveal_pause).timeout
 		if not is_instance_valid(self):
 			return
@@ -113,10 +113,11 @@ func _place_flat(card: Node, pos: Vector3) -> void:
 	card.global_transform = Transform3D(Basis(Vector3.RIGHT, -PI / 2), pos)
 
 
-# Win/lose stinger. tools/gen_sfx.py renders these; load() (not preload) so a not-yet-imported
-# wav just means silence, never a script-load failure.
-func _play_stinger(won: bool) -> void:
-	var stream := load("res://art/win.wav" if won else "res://art/lose.wav")
+# Round stinger by outcome (1 win / -1 lose / 0 draw). tools/gen_sfx.py renders these;
+# load() (not preload) so a not-yet-imported wav just means silence, never a load failure.
+func _play_stinger(outcome: int) -> void:
+	var sound := "win" if outcome > 0 else "lose" if outcome < 0 else "draw"
+	var stream := load("res://art/%s.wav" % sound)
 	if stream:
 		_sfx.stream = stream
 		_sfx.play()
@@ -209,7 +210,7 @@ func _show_end_state(player_won: bool) -> void:
 		var lose_text := "YOU LOSE\nお前の負け"
 		_score_panel.text = win_text if player_won else lose_text
 		_flourish(Color(0.4, 1.0, 0.5) if player_won else Color(1.0, 0.4, 0.4), 1.8, 60, true)
-	_play_stinger(player_won)
+	_play_stinger(1 if player_won else -1)  # game over is win or lose, never a draw
 	# Restart (R20): after a pause, start a fresh game and re-deal so the demo loops cleanly.
 	await get_tree().create_timer(restart_delay).timeout
 	if not is_instance_valid(self):  # zone may be gone if scene reloaded (E13-style guard)
