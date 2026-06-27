@@ -67,11 +67,10 @@ func is_playing() -> bool:
 	return not _user_paused
 
 
-# Win celebration: swap the soundtrack to the victory anthem (looping, not part of the cycle).
-# reset_track() puts the cycled track back. PlayZone calls victory() on a game-over win and
-# reset_track() on Restart.
-func victory() -> void:
-	var stream: AudioStream = load("res://music/Victory.mp3")
+# Swap the soundtrack to a fixed track outside the cycle (looping). reset_track() puts the
+# cycled track back; skip/next also escapes it. Shared by victory/evil_laugh/play_creepy.
+func _play_override(path: String) -> void:
+	var stream: AudioStream = load(path)
 	if stream == null:  # not-yet-imported file just means silence, never a crash
 		return
 	if stream is AudioStreamMP3:
@@ -80,6 +79,24 @@ func victory() -> void:
 	_player.stream = stream
 	_player.play()
 	_apply_pause()
+
+
+# Win celebration: the victory anthem. PlayZone calls victory() on a game-over win,
+# evil_laugh() on a game-over loss (robot reached 3), and reset_track() on Restart.
+func victory() -> void:
+	_play_override("res://music/Victory.mp3")
+
+
+# Robot took the match — cackle until Restart.
+func evil_laugh() -> void:
+	_play_override("res://music/evil-laughing.mp3")
+
+
+# Force the creepy track when 鬼/HARD is picked; the player can skip back to the cycle.
+# Returns the HUD caption (like next_track()).
+func play_creepy() -> String:
+	_play_override("res://music/creepy-song.mp3")
+	return "Creepy Song"
 
 
 # Back to the currently-selected cycle track (turns off the victory anthem on Restart).

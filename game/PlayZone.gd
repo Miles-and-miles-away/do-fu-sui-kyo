@@ -243,8 +243,8 @@ func _sparkle(amount: int) -> void:
 		fx.queue_free()
 
 
-# Player won the match: float the app icon in the middle (eye level, in front of the player) where
-# it pops in and bobs, and ring it with staggered firework bursts for the length of the celebration.
+# Player won the match: float a spinning double-sided coin (the app icon) in the middle, in front of
+# the player — it pops in, bobs, and slowly turns — ringed by staggered firework bursts.
 # Runs as a coroutine alongside _show_end_state's restart wait; restart() bumps _gen so it bails.
 func _celebrate() -> void:
 	_stop_celebration()
@@ -254,21 +254,20 @@ func _celebrate() -> void:
 	anchor.global_position = Vector3(0.0, 1.55, -1.05)
 	_party = anchor
 
-	var icon := Sprite3D.new()
-	icon.texture = ICON
-	icon.pixel_size = 0.5 / ICON.get_width()  # ~0.5 m tall regardless of source resolution
-	icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED  # always faces the player
-	icon.scale = Vector3.ZERO
-	anchor.add_child(icon)
+	var coin := _build_coin()
+	coin.scale = Vector3.ZERO
+	anchor.add_child(coin)
 
-	# Pop in, then bob gently up and down for as long as the icon lives.
+	# Pop in, bob gently, and spin slowly on its vertical axis so both faces of the coin show.
 	var pop := create_tween()
-	pop.tween_property(icon, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(
+	pop.tween_property(coin, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(
 		Tween.EASE_OUT
 	)
 	var bob := create_tween().set_loops()
-	bob.tween_property(icon, "position", Vector3(0.0, 0.05, 0.0), 1.2).set_trans(Tween.TRANS_SINE)
-	bob.tween_property(icon, "position", Vector3(0.0, -0.05, 0.0), 1.2).set_trans(Tween.TRANS_SINE)
+	bob.tween_property(coin, "position", Vector3(0.0, 0.05, 0.0), 1.2).set_trans(Tween.TRANS_SINE)
+	bob.tween_property(coin, "position", Vector3(0.0, -0.05, 0.0), 1.2).set_trans(Tween.TRANS_SINE)
+	var spin := create_tween().set_loops()
+	spin.tween_property(coin, "rotation:y", TAU, 4.0).as_relative().set_trans(Tween.TRANS_LINEAR)
 
 	# Fireworks: a burst every ~0.6 s, circling the icon in rotating party colours.
 	var tones := [
@@ -281,6 +280,42 @@ func _celebrate() -> void:
 		var off := Vector3(cos(ang) * 0.4, sin(ang) * 0.3, 0.0)
 		_firework(anchor, off, tones[i % tones.size()])
 		await get_tree().create_timer(0.6).timeout
+
+
+# A double-sided coin: a thin gold cylinder (the rim/body) with the circular icon on each flat
+# face. Spun around Y in the celebration so both faces show; the edge stays visible side-on so it
+# never blinks out. ICON's transparent corners read as a round coin sitting on the gold cap.
+func _build_coin() -> Node3D:
+	var r := 0.25  # coin radius → 0.5 m across, same as the old flat icon
+	var thick := 0.024
+	var coin := Node3D.new()
+	# Gold body — a flat cylinder turned 90° so its caps point front/back (at the player), edge round.
+	var body := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = r
+	cyl.bottom_radius = r
+	cyl.height = thick
+	cyl.radial_segments = 48
+	body.mesh = cyl
+	body.rotation = Vector3(PI / 2.0, 0.0, 0.0)
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(1.0, 0.82, 0.32)
+	gold.metallic = 0.85
+	gold.roughness = 0.3
+	gold.emission_enabled = true  # dim room — emission keeps the rim readable without scene light
+	gold.emission = Color(0.55, 0.4, 0.1)
+	body.material_override = gold
+	coin.add_child(body)
+	# Icon on both caps; the back face turns 180° about Y so it reads upright, not mirrored.
+	for s in [1.0, -1.0]:
+		var face := Sprite3D.new()
+		face.texture = ICON
+		face.pixel_size = (2.0 * r) / ICON.get_width()  # circle diameter == coin diameter
+		face.position = Vector3(0.0, 0.0, s * (thick / 2.0 + 0.001))  # just clear of the cap, no z-fight
+		if s < 0.0:
+			face.rotation = Vector3(0.0, PI, 0.0)
+		coin.add_child(face)
+	return coin
 
 
 # One firework pop at `offset` within the celebration anchor: a fast, wide, gravity-pulled burst.
@@ -327,6 +362,10 @@ func _show_end_state(player_won: bool) -> void:
 	if player_won:
 		_celebrate()  # icon floats up in the middle, ringed by fireworks (coroutine, runs alongside)
 		Music.victory()  # swap the soundtrack to the victory anthem until Restart
+	else:
+		Music.evil_laugh()  # robot reached 3 — cackle until Restart
+		if _score.x <= 1 and _robot.has_method("celebrate"):
+			_robot.celebrate()  # robot's victory dance on a decisive win (player on 0 or 1 — a 3:0/3:1)
 	_play_stinger(1 if player_won else -1)  # game over is win or lose, never a draw
 	# Game stays on the end banner until the player hits Restart (Hud button → restart()).
 

@@ -40,9 +40,17 @@ var _mouth: MeshInstance3D  # swaps flat ↔ smile on win/loss
 var _mouth_flat: ArrayMesh  # neutral line mouth
 var _mouth_smile: ArrayMesh  # upturned mouth, shown on a win
 var _tear: MeshInstance3D  # neon tear, hidden until the robot loses
+var _eyes: MeshInstance3D  # swaps square ↔ round (round + cuter on EASY)
+var _eyes_square: ArrayMesh  # default rectangular eyes
+var _eyes_round: ArrayMesh  # big round eyes, shown on EASY
 var _horns: MeshInstance3D  # red 鬼 horns, shown only on HARD
-var _shoulder: Vector3  # arm pivot world position
-var _rest_aim: Vector3  # where the arm points when idle (down-forward, never vertical)
+var _arm_l: Node3D  # left shoulder pivot (mirrors _arm; both animate in the victory dance)
+var _elbow: Node3D  # right elbow joint — bends the forearm for the dance (rest = straight)
+var _elbow_l: Node3D  # left elbow joint
+var _shoulder: Vector3  # right arm pivot world position
+var _shoulder_l: Vector3  # left arm pivot world position
+var _rest_aim: Vector3  # where the right arm points when idle (down-forward, never vertical)
+var _rest_aim_l: Vector3  # idle aim for the left arm
 var _head_card: Node = null  # card the player lobbed into the head (HARD); played next
 
 @onready var _game_root: Node = get_parent()  # GameRoot.gd — the card factory (frames live there)
@@ -63,6 +71,8 @@ func _on_difficulty_changed(level: int) -> void:
 		_mat.emission = c
 	if _horns:
 		_horns.visible = level == GameState.Difficulty.HARD
+	if _eyes:
+		_eyes.mesh = _eyes_round if level == GameState.Difficulty.EASY else _eyes_square
 
 
 # Head tracks the player every frame — one look_at on one node, negligible cost (NFR6).
@@ -193,8 +203,17 @@ func _tween_aim(from_pt: Vector3, to_pt: Vector3, secs: float) -> void:
 
 
 func _aim_arm(point: Vector3) -> void:
-	if _arm and _arm.global_position.distance_to(point) > 0.001:
-		_arm.look_at(point, Vector3.UP)
+	_aim(_arm, point)
+
+
+func _aim_arm_l(point: Vector3) -> void:
+	_aim(_arm_l, point)
+
+
+# Point a shoulder pivot's local -Z (and thus the whole limb) at `point` via the built-in look_at.
+func _aim(arm: Node3D, point: Vector3) -> void:
+	if arm and arm.global_position.distance_to(point) > 0.001:
+		arm.look_at(point, Vector3.UP)
 
 
 # ── Procedural wireframe body (line meshes; cylinders are 6-sided line prisms; no rig) ──
@@ -217,10 +236,6 @@ func _build_body() -> void:
 	# Neck — a thin wireframe cylinder (was a single wire).
 	_cyl_between(self, o + Vector3(0.0, 1.12, -0.02), o + Vector3(0.0, 1.24, 0.0), limb_radius)
 
-	# Left (static) arm — thin wireframe cylinders resting on the table.
-	_cyl_between(self, o + Vector3(-0.24, 1.05, -0.02), o + Vector3(-0.30, 0.80, 0.10), limb_radius)
-	_cyl_between(self, o + Vector3(-0.30, 0.80, 0.10), o + Vector3(-0.26, 0.74, 0.25), limb_radius)
-
 	# Deck is invisible now (its box was removed); deck_point is just the throw origin.
 
 	# Head — its own pivot at the head centre so look_at() (in _process) swings it to face the
@@ -231,11 +246,17 @@ func _build_body() -> void:
 	add_child(_head)
 	var head := PackedVector3Array()
 	_box(head, Vector3.ZERO, Vector3(0.26, 0.24, 0.24))  # head cube
-	_box(head, Vector3(-0.06, 0.02, -0.12), Vector3(0.06, 0.05, 0.0))  # left eye (-Z face)
-	_box(head, Vector3(0.06, 0.02, -0.12), Vector3(0.06, 0.05, 0.0))  # right eye (-Z face)
 	var head_mesh := MeshInstance3D.new()
 	head_mesh.mesh = _line_mesh(head)
 	_head.add_child(head_mesh)
+
+	# Eyes — own node so EASY can swap the default squares for big round ones (cuter). On the -Z
+	# face (the side look_at points at the player). Square is the default; round is shown on EASY.
+	_eyes_square = _line_mesh(_eye_shape(false))
+	_eyes_round = _line_mesh(_eye_shape(true))
+	_eyes = MeshInstance3D.new()
+	_eyes.mesh = _eyes_square
+	_head.add_child(_eyes)
 
 	# Mouth — its own node so we can swap line ↔ smile. Starts flat (neutral).
 	_mouth_flat = _line_mesh(_mouth_line(false))
@@ -262,26 +283,78 @@ func _build_body() -> void:
 	_horns.visible = false  # _on_difficulty_changed sets the real state on _ready
 	_head.add_child(_horns)
 
-	# Right arm — its own pivot at the shoulder. Geometry runs along the LOCAL -Z axis so that
-	# look_at(target) points the whole limb (and claw) straight at the aim point. No IK solver.
+	# Both arms — shoulder pivots aimed via look_at, each with an elbow joint child so the forearm
+	# can bend for the victory dance (rest pose = elbow straight, identical to the old rigid arm).
+	# Idle aim is down-forward, never straight down (vertical would break look_at's up vector).
 	_shoulder = o + Vector3(0.24, 1.05, -0.02)
-	# idle aim: down-forward, never straight down (vertical would break look_at's up vector).
 	_rest_aim = _shoulder + Vector3(0.0, -0.5, 0.25)
-	_arm = Node3D.new()
-	_arm.position = _shoulder
-	add_child(_arm)
-	var elbow := Vector3(0.0, -0.04, -0.28)
-	var wrist := Vector3(0.0, -0.10, -0.55)
-	_cyl_between(_arm, Vector3.ZERO, elbow, limb_radius)  # upper arm (toward -Z)
-	_cyl_between(_arm, elbow, wrist, limb_radius)  # forearm (toward -Z)
-	# Claw prongs stay as thin lines (the gripper detail).
-	var claw := PackedVector3Array()
-	_seg(claw, wrist, wrist + Vector3(0.05, -0.02, -0.06))
-	_seg(claw, wrist, wrist + Vector3(-0.05, -0.02, -0.06))
-	var claw_mesh := MeshInstance3D.new()
-	claw_mesh.mesh = _line_mesh(claw)
-	_arm.add_child(claw_mesh)
-	_aim_arm(_rest_aim)  # start the arm at its idle aim
+	var r := _build_arm(_shoulder, _rest_aim, true)  # right arm throws → has the claw
+	_arm = r[0]
+	_elbow = r[1]
+	_shoulder_l = o + Vector3(-0.24, 1.05, -0.02)
+	_rest_aim_l = _shoulder_l + Vector3(0.0, -0.5, 0.25)
+	var l := _build_arm(_shoulder_l, _rest_aim_l, false)  # left arm is static-looking until the dance
+	_arm_l = l[0]
+	_elbow_l = l[1]
+
+
+# Build a shoulder→elbow→forearm pivot at `shoulder`, aimed down-forward at rest. Geometry runs
+# along local -Z so look_at(point) aims the whole limb; the elbow node bends the forearm for the
+# dance. `with_claw` adds the gripper prongs (right arm only). Returns [shoulder_node, elbow_node].
+func _build_arm(shoulder: Vector3, rest_aim: Vector3, with_claw: bool) -> Array:
+	var arm := Node3D.new()
+	arm.position = shoulder
+	add_child(arm)
+	var elbow_pt := Vector3(0.0, -0.04, -0.28)
+	_cyl_between(arm, Vector3.ZERO, elbow_pt, limb_radius)  # upper arm (toward -Z)
+	var elbow := Node3D.new()
+	elbow.position = elbow_pt
+	arm.add_child(elbow)
+	var wrist := Vector3(0.0, -0.06, -0.27)  # forearm end, relative to the elbow joint
+	_cyl_between(elbow, Vector3.ZERO, wrist, limb_radius)  # forearm (under the elbow)
+	if with_claw:
+		var claw := PackedVector3Array()
+		_seg(claw, wrist, wrist + Vector3(0.05, -0.02, -0.06))
+		_seg(claw, wrist, wrist + Vector3(-0.05, -0.02, -0.06))
+		var claw_mesh := MeshInstance3D.new()
+		claw_mesh.mesh = _line_mesh(claw)
+		elbow.add_child(claw_mesh)
+	_aim(arm, rest_aim)  # start at idle aim
+	return [arm, elbow]
+
+
+# Victory dance: throw both arms up, pump the elbows (bend ↔ stretch) a few times, then drop back
+# to rest. PlayZone calls this on a decisive robot match win. Timing/angles are calibration knobs.
+func celebrate() -> void:
+	if not (_arm and _arm_l and _elbow and _elbow_l):
+		return
+	# Arms raise OUT to the sides and up, above the head; then the elbows flex so the forearms
+	# swing inward to meet at the centre above the head, straighten back out, and repeat.
+	var up_r := _shoulder + Vector3(0.45, 0.5, 0.08)  # right arm up-and-out to the side, elbow high
+	var up_l := _shoulder_l + Vector3(-0.45, 0.5, 0.08)  # left arm up-and-out to the side
+	var bend := 1.9  # +ve elbow rotation swings both forearms inward to meet over the head
+	await _dance_step(_rest_aim, up_r, _rest_aim_l, up_l, 0.0, 0.0, 0.25)  # arms out to the sides
+	for _i in 3:
+		await _dance_step(up_r, up_r, up_l, up_l, 0.0, bend, 0.18)  # forearms in to the centre
+		await _dance_step(up_r, up_r, up_l, up_l, bend, 0.0, 0.18)  # straighten back out
+	await _dance_step(up_r, _rest_aim, up_l, _rest_aim_l, 0.0, 0.0, 0.3)  # lower to rest
+	_aim_arm(_rest_aim)  # leave the throwing arm exactly at its idle aim
+
+
+# One dance beat: tween both shoulder aims and both elbow bends in parallel over `secs`.
+func _dance_step(
+	ar0: Vector3, ar1: Vector3, al0: Vector3, al1: Vector3, e0: float, e1: float, secs: float
+) -> void:
+	var tw := create_tween().set_parallel(true)
+	tw.tween_method(_aim_arm, ar0, ar1, secs)
+	tw.tween_method(_aim_arm_l, al0, al1, secs)
+	tw.tween_method(_set_elbows, e0, e1, secs)
+	await tw.finished
+
+
+func _set_elbows(angle: float) -> void:
+	_elbow.rotation.x = angle
+	_elbow_l.rotation.x = angle
 
 
 func _add_mesh(pts: PackedVector3Array) -> void:
@@ -386,6 +459,29 @@ func _box(pts: PackedVector3Array, c: Vector3, s: Vector3) -> void:
 	for sx in signs:
 		for sy in signs:
 			_seg(pts, corner.call(sx, sy, -1.0), corner.call(sx, sy, 1.0))
+
+
+# The two eyes on the -Z face. `round_eyes` → big round circles (EASY, cuter); else the default
+# rectangles. Same two centres either way so the tear still hangs off the left eye.
+func _eye_shape(round_eyes: bool) -> PackedVector3Array:
+	var z := -0.12  # the face plane (head half-depth)
+	var pts := PackedVector3Array()
+	for cx in [-0.06, 0.06]:
+		if round_eyes:
+			_circle(pts, Vector3(cx, 0.03, z), 0.032, 14)  # round + a touch bigger than the squares
+		else:
+			_box(pts, Vector3(cx, 0.02, z), Vector3(0.06, 0.05, 0.0))  # default rectangle
+	return pts
+
+
+# A flat ring of `segments` line segments, radius `r`, centred at `c` in the XY plane (the face).
+func _circle(pts: PackedVector3Array, c: Vector3, r: float, segments: int) -> void:
+	var prev := c + Vector3(r, 0.0, 0.0)
+	for i in range(1, segments + 1):
+		var ang := TAU * i / segments
+		var p := c + Vector3(cos(ang) * r, sin(ang) * r, 0.0)
+		_seg(pts, prev, p)
+		prev = p
 
 
 # Mouth on the -Z face below the eyes: a flat line, or an upturned ∪ smile when `smiling`.

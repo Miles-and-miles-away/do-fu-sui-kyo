@@ -18,6 +18,8 @@ extends SceneTree
 
 const MUSIC_SCRIPT := preload("res://game/Music.gd")
 const VICTORY := "res://music/Victory.mp3"
+const CREEPY := "res://music/creepy-song.mp3"
+const EVIL := "res://music/evil-laughing.mp3"
 
 var _passes := 0
 var _failures: Array[String] = []
@@ -34,6 +36,7 @@ func _initialize() -> void:
 	_m4_stinger_ducks_then_resumes_the_anthem(music)
 	_m5_reset_returns_to_the_selected_track(music)
 	_m6_reset_overrides_a_user_pause(music)
+	_m7_forced_tracks_swap_outside_the_cycle(music)
 
 	music.free()
 
@@ -119,3 +122,21 @@ func _m6_reset_overrides_a_user_pause(music) -> void:
 		music.toggle_play()
 	music.reset_track()
 	_check(not music._user_paused, "M6: reset_track() should clear a user pause")
+
+
+# ── M7 — 鬼 creepy track and the robot's evil laugh swap outside the cycle, then reset ─
+func _m7_forced_tracks_swap_outside_the_cycle(music) -> void:
+	var before_i = music._i
+	_check(music.play_creepy() == "Creepy Song", "M7: play_creepy() should return the HUD caption")
+	_check(
+		_path(music) == CREEPY,
+		"M7: play_creepy() should load the creepy track, got %s" % _path(music)
+	)
+	_check(music._i == before_i, "M7: forced tracks must not advance the cycle index")
+	music.evil_laugh()
+	_check(_path(music) == EVIL, "M7: evil_laugh() should load the laugh, got %s" % _path(music))
+	_check(not music._user_paused, "M7: a forced track should be playing, not paused")
+	music.reset_track()
+	_check(
+		_path(music) == music.TRACKS[before_i].path, "M7: reset should return to the cycle track"
+	)
