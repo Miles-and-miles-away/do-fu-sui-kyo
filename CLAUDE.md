@@ -16,5 +16,6 @@ godot --headless --path . --script res://tests/test_game_state.gd   # tests, exi
 - A `pre-commit` hook runs `gdformat` + `gdlint` automatically — install it once with
   `pip install pre-commit && pre-commit install`. The compile-check + test suite run in
   CI only (they need the engine).
-- gdtoolkit is pinned to `~=4.5`; keep `.pre-commit-config.yaml` and `ci.yml` in step.
+- gdtoolkit is pinned to the exact `4.5.0` in both `.pre-commit-config.yaml` (`rev`) and `ci.yml`
+  (`pip install`); bump both together so local and CI format identically.
 - Don't reformat or lint `addons/` — third-party code, excluded everywhere.

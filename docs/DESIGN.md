@@ -35,7 +35,7 @@ beats water). First to 3 wins. The charm + the physical throw is the whole pitch
 - **Hand of 3** per side; start with one of each; cards are consumed on play and redrawn.
 - Hand **drift**: by round 2+ you may not hold all three types — *this is the game.*
 - **Robot**: picks a random-legal card from *its own* hand and throws it.
-- RPS resolution → winner smiles, loser cries, draw = both neutral/blink.
+- RPS resolution → winner smiles, loser cries, draw = both cry.
 - **First-to-3** score, shown on a simple panel; round reset; game-over state.
 
 ### OUT of scope — do NOT build, even if tempting
@@ -58,7 +58,7 @@ beats water). First to 3 wins. The charm + the physical throw is the whole pitch
 
 - **Types:** `WATER` (Fish), `SKY` (Bird), `EARTH` (Dino).
 - **Beats table:** WATER → beats → SKY; SKY → beats → EARTH; EARTH → beats → WATER.
-- **Same type = draw.** No points; both critters blink/neutral.
+- **Same type = draw.** No points; both critters **cry** (a draw counts as a loss for both).
 - **Round:** player throws one card; robot throws one card; resolve; award a point to the
   winner (none on a draw); both played cards are consumed (discarded).
 - **Refill:** after each round, both hands draw back up to 3 from the shared deck.
@@ -306,10 +306,10 @@ Test `GameState.gd` only — do **not** unit-test the VR/scene layer; verify tha
 
 ## 6. Card face — sprite swap (`CardFace.gd`)
 
-Each card's front material has its `albedo_texture` swapped between 4 frames. No rigging.
+Each card's front material has its `albedo_texture` swapped among 6 frames. No rigging.
 
 ```gdscript
-# CardFace.gd — ROOT script of Card.tscn. Holds the 4 expression frames + blink loop.
+# CardFace.gd — ROOT script of Card.tscn. Holds the 6 expression frames + blink loop.
 # Extends the addon's pickable so ONE node is grabbable/throwable AND owns its face — a node
 # can't carry two RigidBody3D scripts, and PlayZone reads card_type/show_smile() off the body
 # that enters the zone. (Early drafts wrote `extends RigidBody3D`; the pickable IS a RigidBody3D.)
@@ -318,6 +318,8 @@ extends "res://addons/godot-xr-tools/objects/pickable.gd"   # XRToolsPickable, a
 @export var card_type: GameState.Type
 @export var tex_neutral: Texture2D
 @export var tex_blink: Texture2D
+@export var tex_determined: Texture2D        # shown while the card is held
+@export var tex_determined_blink: Texture2D  # determined, eyes closed (blink while held)
 @export var tex_smile: Texture2D
 @export var tex_cry: Texture2D
 
@@ -354,7 +356,7 @@ func show_cry() -> void:
 	_set(tex_cry)
 ```
 
-**Art needed:** 3 critters × 4 frames = **12 small images** (front-facing, consistent
+**Art needed:** 3 critters × 6 frames = **18 small images** (front-facing, consistent
 framing). Generate with an image tool (on-ethos for the event). Keep them square, same
 crop, transparent or solid background — consistency matters more than polish.
 
@@ -385,7 +387,7 @@ func _on_body_entered(body: Node) -> void:
 	match result.outcome:
 		1:  player_card.show_smile(); robot_card.show_cry()
 		-1: player_card.show_cry();   robot_card.show_smile()
-		0:  pass   # both stay neutral/blinking
+		0:  player_card.show_cry(); robot_card.show_cry()   # draw = loss for both
 
 	_update_score(result.player_score, result.robot_score)
 
@@ -412,26 +414,33 @@ func _show_end_state(player_won: bool) -> void:
 
 ---
 
-## 8. Robot throw (`RobotPlayer.gd`)
+## 8. Robot character (`RobotPlayer.gd`)
 
-The robot doesn't grab — it spawns its chosen card at `RobotThrowPoint` and applies an
-impulse toward the play zone. Reuses the same `Card.tscn`, scripted instead of hand-driven.
+The robot is a **wireframe character** standing opposite the player: a glowing line-mesh
+body built procedurally from `ArrayMesh` `PRIMITIVE_LINES` (no model file, no rig, no skeletal
+animation — fits the headless export loop, every colour/timing an `@export`). The arm and head
+are separate pivot nodes that **aim with the built-in `look_at()`** — the lazy distillation of
+godot-demo-projects `3d/ik` (its look-at IK boils down to `Transform3D.looking_at`), so there's
+**no Skeleton3D / IK solver**. On its turn the arm `look_at()`s its deck, picks a card up, then
+`look_at()`s the table spot to lay it — the claw always points where the card goes, no pose
+angles to tune. The head continuously `look_at()`s the player for life. The played `Card.tscn`
+(built by `GameRoot.make_card`, so frames stay single-sourced) glides deck → table in parallel
+with the arm, then `PlayZone` snaps it flat at its spot after the settle window.
 
 ```gdscript
-# Called from PlayZone when resolving; or pre-throw on a short delay for drama.
-func _spawn_robot_card(t: GameState.Type) -> Node:
-	var card := preload("res://game/Card.tscn").instantiate()
-	card.card_type = t
-	# assign the matching 4 textures for type t (keep a lookup dict of frame sets)
+# RobotPlayer.present_card(t, lay_pos): make the card, animate the arm laying it at lay_pos,
+# return the node immediately so PlayZone can flip its face after settle (R15).
+func present_card(t: int, lay_pos: Vector3) -> Node:
+	var card: RigidBody3D = _game_root.make_card(t)   # single card factory (frames live there)
 	get_tree().current_scene.add_child(card)
-	card.global_position = $RobotThrowPoint.global_position
-	var aim := ($PlayZone.global_position - card.global_position).normalized()
-	card.apply_central_impulse(aim * 4.0)   # tune magnitude to land in-zone
+	card.freeze = true                                # carried kinematically, no gravity
+	card.global_position = deck_point
+	_play_card(card, lay_pos)                         # async: arm rest→pick→place + card arc
 	return card
 ```
-> For demo robustness, the robot card *also* always lands in-zone — same "cards always fly
-> true" rule. If physics is fiddly, you can instead just place the robot card directly and
-> skip its physics throw; the player's throw is the one that must feel good.
+> Both robot and player cards always end up in-zone (NFR5). The arm is a believable *gesture*
+> (no IK) — the card's landing is snapped to `lay_pos`, so the reach never has to be exact;
+> the player's throw is the one that must feel good. Tune arm poses/timing in-headset (§5.1).
 
 ---
 
@@ -464,7 +473,7 @@ func _spawn_robot_card(t: GameState.Type) -> Node:
 - Pass criteria in §5 all green before moving on.
 
 **Stage 2 — wire VR to brain + art**
-- Generate 12 sprites; build a `type → {neutral,blink,smile,cry}` lookup.
+- Generate 18 sprites; build a `type → {neutral,blink,determined,determined_blink,smile,cry}` lookup.
 - `CardFace.gd` as the `Card.tscn` root (extends `XRToolsPickable`, §6); blink timer working.
 - `GameRoot.gd` spawns the player's hand cards from `GameState.player_hand` into the slots
   (initial deal + post-round refill) and clears consumed cards — the logic→scene glue.
@@ -484,7 +493,7 @@ func _spawn_robot_card(t: GameState.Type) -> Node:
 | Flat-card throw feels janky (tumbles, lands on edge) | High | Fatten collider; consider locking rotation; PlayZone box is generous + low so *any* entry counts. Budget Day-2 buffer. |
 | Scope creep (esp. into the deck/hand layer) | Medium | Scope is frozen (§1). Complexity allowed only in `GameState.gd`. |
 | Deck empties → crash mid-demo | Medium | `draw_one()` rebuilds on empty (already handled). Don't remove that guard. |
-| Sprite framing inconsistent (jumpy faces) | Medium | Same crop/size/background for all 12 frames; check side-by-side before wiring. |
+| Sprite framing inconsistent (jumpy faces) | Medium | Same crop/size/background for all 18 frames; check side-by-side before wiring. |
 | Title *feel* off in JP (ordering/feng-shui echo) | Medium | Native speaker check at venue; 土空水競 (earth-sky-water) as exact-match fallback. |
 | Animated walls cost framerate on Quest 3 | Medium | GPU shader only (`TIME`-driven), no per-frame GDScript; dim low-poly cylinder. Ambiance is **cut-first** — if it hitches, drop to a static painted shell (§4.5). |
 
@@ -495,7 +504,7 @@ func _spawn_robot_card(t: GameState.Type) -> Node:
 - [ ] Builds and runs on a Quest 3 from the Meta Quest preset.
 - [ ] Player can grab and throw a card into the play zone reliably.
 - [ ] Robot throws/reveals a card each round.
-- [ ] Correct RPS resolution; winner smiles, loser cries, draw = neutral.
+- [ ] Correct RPS resolution; winner smiles, loser cries, draw = both cry.
 - [ ] Card characters blink at rest.
 - [ ] Hand of 3 consumes + refills from the shared deck; hands drift over rounds.
 - [ ] Score panel updates; first-to-3 ends the game; restart possible.
@@ -507,7 +516,9 @@ func _spawn_robot_card(t: GameState.Type) -> Node:
 
 - **DECIDED:** First-to-3 · shared deck · random-legal robot · cards always land in-zone ·
   2D sprite-swap faces (no rigging) · throw-to-play (not place) · single-player only.
-- **DECIDED:** Robot card uses real physics throw.
+- **DECIDED:** Robot is a procedural **wireframe character** opposite the player that reaches
+  out, picks a card up, and lays it on the table (arm tween, no rig/IK; card landing snapped).
+  Supersedes the earlier "robot card uses a physics throw" — the animated lay-down replaced it.
 - **CORRECTED:** Physical draw-from-pile beat is **STRETCH** (FSD R28); **default = `GameRoot`
   auto-spawns the refill** (no `DrawPile` grab). An earlier draft wrongly listed this as committed.
 - **REVISED:** Circular elemental room (§4.5) is ambiance outside the §1 frozen core. **Room shell

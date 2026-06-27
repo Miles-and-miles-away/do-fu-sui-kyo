@@ -29,8 +29,8 @@ extends "res://addons/godot-xr-tools/objects/pickable.gd"  # XRToolsPickable, a 
 @export var tex_determined_blink: Texture2D  # determined, eyes closed (blink while held)
 
 # Tunable blink cadence (R6, FSD §5.1 — @export so it's venue-calibratable in-editor).
-@export var blink_interval_min: float = 3.0
-@export var blink_interval_max: float = 4.5
+@export var blink_interval_min: float = 1.8
+@export var blink_interval_max: float = 2.2
 @export var blink_hold: float = 0.15
 
 var _mat: StandardMaterial3D

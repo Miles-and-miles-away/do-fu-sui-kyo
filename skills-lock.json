@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "deepwiki": {
+      "source": "seflless/deepwiki",
+      "sourceType": "github",
+      "skillPath": "skills/deepwiki/SKILL.md",
+      "computedHash": "836ccb7598f0b44a8b1b7414134d5abf4333556a8474d30a8fcae00040491274"
+    }
+  }
+}

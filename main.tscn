@@ -5,6 +5,27 @@
 [ext_resource type="Script" uid="uid://bgrpmy2u5hy7i" path="res://game/PlayZone.gd" id="3_playzone"]
 [ext_resource type="Script" uid="uid://bgvm1dovuj0ur" path="res://game/RobotPlayer.gd" id="4_robot"]
 [ext_resource type="PackedScene" path="res://game/Card.tscn" id="5_card"]
+[ext_resource type="Shader" uid="uid://cs7g761thwnwu" path="res://game/wall.gdshader" id="6_wall"]
+[ext_resource type="Shader" path="res://game/wood.gdshader" id="28_wood"]
+[ext_resource type="Shader" path="res://game/felt.gdshader" id="29_felt"]
+[ext_resource type="Texture2D" uid="uid://vue50gm4b6lx" path="res://art/fish_neutral.png" id="10_fn"]
+[ext_resource type="Texture2D" uid="uid://bpspsbwi68k8s" path="res://art/fish_blink.png" id="11_fb"]
+[ext_resource type="Texture2D" uid="uid://c2bgkvi31un4r" path="res://art/fish_determined.png" id="12_fd"]
+[ext_resource type="Texture2D" uid="uid://bdku1do8tekqa" path="res://art/fish_determined_blink.png" id="13_fdb"]
+[ext_resource type="Texture2D" uid="uid://dcyivj1vfia7s" path="res://art/fish_smile.png" id="14_fs"]
+[ext_resource type="Texture2D" uid="uid://cran48ek1u7gg" path="res://art/fish_cry.png" id="15_fc"]
+[ext_resource type="Texture2D" uid="uid://cfhw0jf45t5bf" path="res://art/bird_neutral.png" id="16_bn"]
+[ext_resource type="Texture2D" uid="uid://itfy8qn7tq3k" path="res://art/bird_blink.png" id="17_bb"]
+[ext_resource type="Texture2D" uid="uid://b5f80y50wxra0" path="res://art/bird_determined.png" id="18_bd"]
+[ext_resource type="Texture2D" uid="uid://dcc87obisk831" path="res://art/bird_determined_blink.png" id="19_bdb"]
+[ext_resource type="Texture2D" uid="uid://clnhvp1vi58gi" path="res://art/bird_smile.png" id="20_bs"]
+[ext_resource type="Texture2D" uid="uid://b8540qgaxeoui" path="res://art/bird_cry.png" id="21_bc"]
+[ext_resource type="Texture2D" uid="uid://bko1gevd53225" path="res://art/dino_neutral.png" id="22_dn"]
+[ext_resource type="Texture2D" uid="uid://b35neisc0doqe" path="res://art/dino_blink.png" id="23_db"]
+[ext_resource type="Texture2D" uid="uid://tdrp3xip7vgg" path="res://art/dino_determined.png" id="24_dd"]
+[ext_resource type="Texture2D" uid="uid://dljixxrk1v4yr" path="res://art/dino_determined_blink.png" id="25_ddb"]
+[ext_resource type="Texture2D" uid="uid://2brxunp1ng24" path="res://art/dino_smile.png" id="26_ds"]
+[ext_resource type="Texture2D" uid="uid://b15nxdlqa7d2g" path="res://art/dino_cry.png" id="27_dc"]
 
 [sub_resource type="Environment" id="Environment_dim"]
 background_mode = 1
@@ -12,18 +33,68 @@ background_color = Color(0.04, 0.04, 0.06, 1)
 ambient_light_source = 2
 ambient_light_color = Color(0.45, 0.45, 0.5, 1)
 
-[sub_resource type="BoxMesh" id="BoxMesh_table"]
-size = Vector3(1.2, 0.7, 0.8)
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wood"]
+shader = ExtResource("28_wood")
+; No shader_parameter overrides — wood.gdshader uniform defaults are the single source of truth.
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_table"]
-size = Vector3(1.2, 0.7, 0.8)
+[sub_resource type="CylinderMesh" id="CylinderMesh_top"]
+material = SubResource("ShaderMaterial_wood")
+top_radius = 0.55
+bottom_radius = 0.55
+height = 0.05
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_zone"]
-size = Vector3(0.6, 0.25, 0.45)
+[sub_resource type="CylinderMesh" id="CylinderMesh_cone"]
+material = SubResource("ShaderMaterial_wood")
+top_radius = 0.55
+bottom_radius = 0.06
+height = 0.13
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_stem"]
+material = SubResource("ShaderMaterial_wood")
+top_radius = 0.06
+bottom_radius = 0.06
+height = 0.52
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_top"]
+; Solid collision column up to the tabletop surface (top at world y≈0.70) — a thrown card
+; lands on top and can't tunnel through. (The visible top is the thin CylinderMesh_top disc;
+; this is just the physics body, so its height is free to be tall.)
+radius = 0.55
+height = 0.7
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wall"]
+shader = ExtResource("6_wall")
+; No shader_parameter overrides — wall.gdshader uniform defaults are the single source of truth.
+; Tune the walls by editing wall.gdshader; don't re-add overrides here (they'd mask the file).
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_room"]
+material = SubResource("ShaderMaterial_wall")
+top_radius = 3.0
+bottom_radius = 3.0
+height = 4.0
+cap_top = false
+cap_bottom = false
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_felt"]
+shader = ExtResource("29_felt")
+; felt.gdshader defaults are the single source of truth (radius 0.25 = the felt disc + trigger).
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_felt"]
+material = SubResource("ShaderMaterial_felt")
+top_radius = 0.25
+bottom_radius = 0.25
+height = 0.002
+
+; PlayZone trigger = a cylinder matching the felt disc, tall enough to reach DOWN to the table
+; surface so a card landing on the felt (not just one arcing through above it) fires the round.
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_zone"]
+radius = 0.25
+height = 0.4
 
 [node name="Main" type="Node3D" unique_id=1611403659]
 
 [node name="XRRig" parent="." unique_id=1910059270 instance=ExtResource("1_rig")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19356394, 0.97807443, -0.19898379)
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=53625573]
 environment = SubResource("Environment_dim")
@@ -32,37 +103,58 @@ environment = SubResource("Environment_dim")
 transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 3, 0)
 
 [node name="Table" type="StaticBody3D" parent="." unique_id=356577706]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -0.4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.6)
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Table" unique_id=1404761197]
-mesh = SubResource("BoxMesh_table")
+[node name="Top" type="MeshInstance3D" parent="Table" unique_id=1404761197]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.675, 0)
+mesh = SubResource("CylinderMesh_top")
+
+[node name="Cone" type="MeshInstance3D" parent="Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.585, 0)
+mesh = SubResource("CylinderMesh_cone")
+
+[node name="Stem" type="MeshInstance3D" parent="Table"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.26, 0)
+mesh = SubResource("CylinderMesh_stem")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Table" unique_id=1515865282]
-shape = SubResource("BoxShape3D_table")
+; Centred at y=0.35 so the 0.7-tall collision column's top meets the tabletop at y=0.70.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+shape = SubResource("CylinderShape3D_top")
+
+[node name="Environment" type="Node3D" parent="." unique_id=611089111]
+
+[node name="RoomShell" type="MeshInstance3D" parent="Environment" unique_id=611089112]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -0.2)
+mesh = SubResource("CylinderMesh_room")
 
 [node name="GameRoot" type="Node3D" parent="." unique_id=791089628]
 script = ExtResource("2_gameroot")
 card_scene = ExtResource("5_card")
+frames_water = Array[Texture2D]([ExtResource("10_fn"), ExtResource("11_fb"), ExtResource("12_fd"), ExtResource("13_fdb"), ExtResource("14_fs"), ExtResource("15_fc")])
+frames_sky = Array[Texture2D]([ExtResource("16_bn"), ExtResource("17_bb"), ExtResource("18_bd"), ExtResource("19_bdb"), ExtResource("20_bs"), ExtResource("21_bc")])
+frames_earth = Array[Texture2D]([ExtResource("22_dn"), ExtResource("23_db"), ExtResource("24_dd"), ExtResource("25_ddb"), ExtResource("26_ds"), ExtResource("27_dc")])
 
 [node name="PlayerHandAnchors" type="Node3D" parent="GameRoot" unique_id=1424220588]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0.1)
 
 [node name="Slot0" type="Marker3D" parent="GameRoot/PlayerHandAnchors" unique_id=1800846635]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 0.74, -0.15)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.2, 1.1, -0.15)
 
 [node name="Slot1" type="Marker3D" parent="GameRoot/PlayerHandAnchors" unique_id=1844155677]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.74, -0.15)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -0.15)
 
 [node name="Slot2" type="Marker3D" parent="GameRoot/PlayerHandAnchors" unique_id=930462826]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 0.74, -0.15)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.2, 1.1, -0.15)
 
 [node name="PlayZone" type="Area3D" parent="GameRoot" unique_id=866281486]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -0.45)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, -0.6)
 collision_layer = 0
 collision_mask = 4
 script = ExtResource("3_playzone")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="GameRoot/PlayZone" unique_id=2134499633]
-shape = SubResource("BoxShape3D_zone")
+shape = SubResource("CylinderShape3D_zone")
 
 [node name="RobotThrowPoint" type="Marker3D" parent="GameRoot" unique_id=698933416]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -0.75)
@@ -71,7 +163,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -0.75)
 script = ExtResource("4_robot")
 
 [node name="ScorePanel" type="Label3D" parent="GameRoot" unique_id=371993185]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, -0.85)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, -1.45)
 pixel_size = 0.003
 text = "You 0 — 0 Robot"
 font_size = 64
+
+; The red felt target disc — sits on the table surface (y≈0.70) directly under the PlayZone
+; trigger (same x,z and radius), so its visible circle IS the place to throw the card onto.
+[node name="FeltCircle" type="MeshInstance3D" parent="GameRoot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.702, -0.6)
+mesh = SubResource("CylinderMesh_felt")

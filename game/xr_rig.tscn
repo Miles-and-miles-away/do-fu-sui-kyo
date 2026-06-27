@@ -3,16 +3,23 @@
 ; per controller (the grabber, R1/R2). NO game logic lives here (R24). Instanced by BOTH
 ; bringup.tscn (T10) and main.tscn so the rig is authored once.
 ; ⚠️ Open in Godot 4.7 once to let it assign UIDs + confirm the addon scenes resolve.
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="PackedScene" uid="uid://clc5dre31iskm" path="res://addons/godot-xr-tools/xr/start_xr.tscn" id="1_startxr"]
 [ext_resource type="PackedScene" uid="uid://b4ysuy43poobf" path="res://addons/godot-xr-tools/functions/function_pickup.tscn" id="2_pickup"]
+[ext_resource type="PackedScene" path="res://addons/godot-xr-tools/hands/scenes/lowpoly/left_hand_low.tscn" id="3_lhand"]
+[ext_resource type="PackedScene" path="res://addons/godot-xr-tools/hands/scenes/lowpoly/right_hand_low.tscn" id="4_rhand"]
 
 [node name="XRRig" type="Node3D"]
 
 [node name="StartXR" parent="." instance=ExtResource("1_startxr")]
 
 [node name="XROrigin3D" type="XROrigin3D" parent="."]
+; Offset the player so a standing player sits at the 0.7 m-tall table at a comfortable distance.
+; Y sinks the viewpoint (floor-referenced tracking keeps you upright); +Z stands you back from
+; the table (which sits at z=-0.6). Tune both by hand: more -Y if still floating, more +Z if too
+; close. ponytail: single-node offset keeps all the world-coord card/robot positions consistent.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.8, 0.4)
 
 [node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
 
@@ -20,8 +27,14 @@
 tracker = &"left_hand"
 
 [node name="FunctionPickup" parent="XROrigin3D/LeftHand" instance=ExtResource("2_pickup")]
+pickup_axis_action = "trigger"
+
+[node name="LeftHandModel" parent="XROrigin3D/LeftHand" instance=ExtResource("3_lhand")]
 
 [node name="RightHand" type="XRController3D" parent="XROrigin3D"]
 tracker = &"right_hand"
 
 [node name="FunctionPickup" parent="XROrigin3D/RightHand" instance=ExtResource("2_pickup")]
+pickup_axis_action = "trigger"
+
+[node name="RightHandModel" parent="XROrigin3D/RightHand" instance=ExtResource("4_rhand")]

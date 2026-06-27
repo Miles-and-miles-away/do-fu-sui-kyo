@@ -14,8 +14,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # ponytail: pin the minor so a new gdtoolkit rule can't turn CI red without us choosing it.
-      - run: pip install "gdtoolkit~=4.5"
+      # ponytail: pin the EXACT version pre-commit uses (.pre-commit-config.yaml rev) so local
+      # and CI format identically — a looser range could format differently and turn CI red.
+      - run: pip install "gdtoolkit==4.5.0"
       - name: format + lint (excluding third-party addons)
         run: |
           files=$(find . -name '*.gd' -not -path './addons/*')

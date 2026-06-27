@@ -62,10 +62,10 @@ Priority: **MUST** = ships (DESIGN §1 IN-scope / §12 done) · **SHOULD** = exp
 
 | ID | Requirement | Pri | Src | Verified |
 |----|-------------|-----|-----|----------|
-| R5 | Each card's front face SHALL be a 2D sprite shown by swapping the material `albedo_texture` among **exactly four frames** — `neutral`, `blink`, `smile`, `cry`. No skeletal rigging, blend shapes, or 3D facial animation. | MUST | §1,§6 | T13,T14 |
+| R5 | Each card's front face SHALL be a 2D sprite shown by swapping the material `albedo_texture` among **exactly six frames** — `neutral`, `blink`, `determined`, `determined_blink`, `smile`, `cry` (the `determined` pair is shown while the card is held; see `docs/SPRITES.md`). No skeletal rigging, blend shapes, or 3D facial animation. | MUST | §1,§6 | T13,T14 |
 | R6 | At rest, each card SHALL **blink**: swap to the blink frame for ~150 ms at a randomized interval of ~3.0–4.5 s, then return to neutral. | SHOULD | §1,§6 | T14 |
-| R7 | On round resolution the winning card SHALL show `smile`, the losing card SHALL show `cry`, and on a draw both SHALL remain neutral/blinking. A card that shows smile/cry SHALL **lock** and stop blinking. | MUST | §2,§6,§7 | T13 |
-| R8 | The art set SHALL be exactly **3 critters × 4 frames = 12 sprites**, addressable by a `type → {neutral,blink,smile,cry}` lookup. | MUST | §6 | T20 |
+| R7 | On round resolution the winning card SHALL show `smile`, the losing card SHALL show `cry`, and on a draw (same type) both SHALL show `cry` — a draw counts as a loss for both. A card that shows smile/cry SHALL **lock** and stop blinking. | MUST | §2,§6,§7 | T13 |
+| R8 | The art set SHALL be exactly **3 critters × 6 frames = 18 sprites**, addressable by a `type → {neutral,blink,determined,determined_blink,smile,cry}` lookup. | MUST | §6 | T20 |
 
 ### 3.3 Deck & hand (the one place complexity is allowed — §1)
 
@@ -82,7 +82,7 @@ Priority: **MUST** = ships (DESIGN §1 IN-scope / §12 done) · **SHOULD** = exp
 | ID | Requirement | Pri | Src | Verified |
 |----|-------------|-----|-----|----------|
 | R14 | Each round the robot SHALL select a **random legal card from its OWN hand** and play it. It SHALL NOT read or react to the player's hand. | MUST | §1,§8 | T8 |
-| R15 | The robot's chosen card SHALL be **presented in the play area** each round (spawned at `RobotThrowPoint`, then thrown toward or directly placed in the `PlayZone`). Both robot and player cards always land in-zone by design. | MUST | §1,§8 | T15 |
+| R15 | The robot's chosen card SHALL be **presented in the play area** each round — a wireframe robot character opposite the player reaches out, picks the card up, and lays it on the table in the `PlayZone`. Both robot and player cards always land in-zone by design. | MUST | §1,§8 | T15 |
 
 ### 3.5 Resolution, scoring & game flow
 
@@ -137,7 +137,7 @@ Priority: **MUST** = ships (DESIGN §1 IN-scope / §12 done) · **SHOULD** = exp
   | SKY (Bird) | EARTH (Dino) | WATER (Fish) |
   | EARTH (Dino) | WATER (Fish) | SKY (Bird) |
 
-- **Same type = draw.** No points; both critters stay neutral/blink.
+- **Same type = draw.** No points; both critters **cry** (a draw counts as a loss for both).
 - **Round:** player throws one card; robot plays one card; resolve; award one point to the
   winner (none on a draw); both played cards are consumed (discarded).
 - **Refill:** after each round both hands draw back up to 3 from the shared deck.
@@ -186,8 +186,8 @@ score == 3.
 - **RNG / test determinism.** `Array.shuffle()` / `randi()` use Godot's global RNG. Seed it
   (`seed(<fixed>)`) at the start of the headless test (T1) for reproducibility; leave the shipped
   game default-seeded so each match differs. Determinism is a *test* concern, not a gameplay one.
-- **Sprite lookup (optional `.tres`).** R8's `type → {neutral,blink,smile,cry}` set fits a small
-  `CardData extends Resource` (four `@export Texture2D`), saved as three `.tres` files assigned in
+- **Sprite lookup (optional `.tres`).** R8's `type → {neutral,blink,determined,determined_blink,smile,cry}`
+  set fits a small `CardData extends Resource` (six `@export Texture2D`), saved as three `.tres` files assigned in
   the inspector — keeps art out of code. Equivalent to DESIGN §6's per-card `@export` fields;
   either satisfies R5/R8. Per-card runtime state (`_locked`, current frame, blink timer) lives on
   the node (`CardFace.gd`), not the resource, so the shared resource is read-only — no duplication.
@@ -204,7 +204,7 @@ score == 3.
 Defers visual/interaction *implementation* to DESIGN §4/§6/§7; this section is the behavioral spec.
 
 ### 6.1 Aesthetic
-- **Faces:** 2D sprite-swap only — cute, front-facing critters; 12 frames sharing identical
+- **Faces:** 2D sprite-swap only — cute, front-facing critters; 18 frames sharing identical
   crop/size/framing (R8, NFR7). Consistency over polish.
 - **Table & rig:** our own — a simple table mesh + the standard XR Tools rig; keep the rig
   conventional, no game logic in it (R24).
@@ -231,7 +231,7 @@ Defers visual/interaction *implementation* to DESIGN §4/§6/§7; this section i
 1. Player grabs a card from a hand slot (R1) and throws it (R2).
 2. Card enters `PlayZone` → exactly one resolution fires (R3, R22).
 3. Robot's card is presented in the play area (R15).
-4. Faces update: winner smiles, loser cries, draw = both neutral (R7).
+4. Faces update: winner smiles, loser cries, draw = both cry (R7).
 5. Score panel updates (R18).
 6. ~2 s reveal pause, then next round — or end state if a side hit 3 (R19, R21).
 
@@ -247,7 +247,7 @@ Defers visual/interaction *implementation* to DESIGN §4/§6/§7; this section i
 | NFR4 | Built **from scratch** on **Godot 4.7 + GDScript** with the **Godot XR Tools** addon (installed under `addons/`) + built-in OpenXR. No template fork. | §3 |
 | NFR5 | Cards **always fly true and land in-zone** by design; **no miss-handling** path is required or built. | §1 |
 | NFR6 | Maintain a **comfortable VR framerate** on Quest 3 across a full game with no nausea-inducing hitches; avoid per-frame allocations in hot paths. | §11 |
-| NFR7 | All **12 sprite frames** SHALL share identical crop, size, and framing (no jumpy faces). | §6,§11 |
+| NFR7 | All **18 sprite frames** SHALL share identical crop, size, and framing (no jumpy faces). | §6,§11 |
 | NFR8 | **Complexity is confined to `GameState.gd`**; every other script takes the simplest path. | §1 |
 
 ---
@@ -281,14 +281,14 @@ Format: `T# | Test | Procedure → Expected | Verifies`. Tests T1–T9 are **hea
 | T10 | Toolchain (bring-up) | Deploy a **minimal XR bring-up build** (XR Tools rig + one grabbable test cube, no game code) to Quest 3 from our Meta Quest preset. → Rig renders in-headset, the cube is grabbable, `adb devices` lists the Quest. | NFR1,NFR4,R24 |
 | T11 | Grab & throw | In headset, grab a card and throw it. → Uses XR Tools grab/throw; card releases and flies. | R1,R2,R24 |
 | T12 | Play-zone single fire | Throw a card into `PlayZone`; throw a second mid-resolution. → Exactly one resolution per round; extra entries ignored. | R3,R22 |
-| T13 | Faces on resolve | Win, lose, and draw a round. → Winner smiles, loser cries, draw neutral; emoting card stops blinking. | R5,R7 |
+| T13 | Faces on resolve | Win, lose, and draw a round. → Winner smiles, loser cries, draw = both cry; emoting card stops blinking. | R5,R7 |
 | T14 | Blink at rest | Observe an idle card. → Blinks ~every 3.0–4.5 s for ~150 ms, returns to neutral. | R5,R6 |
 | T15 | Robot card presented | Play a round. → Robot's card appears in the play area and lands in-zone. | R15 |
 | T16 | Score panel | Play rounds. → Panel reads "You N — M Robot" and updates each round. | R18 |
 | T17 | End + restart | Reach 3. → "YOU WIN!" / "ROBOT WINS" shown; restart yields a fresh game (deck/score/hands reset). | R19,R20 |
 | T18 | Full round flow | Play a complete first-to-3 game in-headset. → Order & ~2 s reveal pacing per R21; no stuck rounds. | R21 |
 | T19 | Performance | Play a full game on Quest 3. → Comfortable framerate sustained; no nausea-inducing hitches. | NFR6 |
-| T20 | Sprite consistency | View all 12 frames side by side. → Identical crop/size/framing; faces don't jump. | R8,NFR7 |
+| T20 | Sprite consistency | View all 18 frames side by side. → Identical crop/size/framing; faces don't jump. | R8,NFR7 |
 | T21 | Stretch — juice | If built: a win triggers the audio sting and/or glow/haptic once. | R25,R26 |
 | T22 | Stretch — heuristic | If built: robot biases toward the counter to the player's most-played type, still from its own hand. | R27 |
 | T23 | Stretch — draw beat | If built: player can grab a refill card from `DrawPile`. | R28 |

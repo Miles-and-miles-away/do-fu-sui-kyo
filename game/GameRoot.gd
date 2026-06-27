@@ -14,6 +14,12 @@ extends Node3D
 # whoever spawned it (player deal or robot). StringName literal = no per-call alloc (NFR6).
 const CARD_GROUP := &"card"
 
+# Card-landing behaviour (calibrate against the table in main.tscn).
+const TABLE_REST_Y := 0.704  # height a card lies flat at — matches PlayZone.table_surface_y
+const TABLE_CENTRE := Vector2(0.0, -0.6)  # table-disc centre (x,z) in world space
+const TABLE_RADIUS := 0.55  # table-disc radius — inside = rests on top, outside = fell off
+const FLOOR_Y := 0.5  # below this (and off the disc) a card has fallen → fly it home
+
 # Card.tscn + the 18 frames grouped per type (R8). Assign ONCE in the inspector here.
 # Canonical order (matches docs/SPRITES.md §8 + tools/sprites.py EXPRESSIONS):
 #   [neutral, blink, determined, determined_blink, smile, cry]
@@ -30,6 +36,56 @@ func _ready() -> void:
 	# GameState (autoload) already ran new_game() in its own _ready(), so player_hand is
 	# populated by now (autoloads init before scene nodes). Just present it.
 	deal_player_hand()
+
+
+# Watch each free (thrown, not held) player card and decide where it ends up. Cheap — a
+# handful of cards, simple checks (NFR6). Cards heading for the felt enter PlayZone first
+# and get frozen there, so they're already skipped by the `freeze` guard.
+# ponytail: snap-to-rest instead of trusting thin-card physics — fixes "sinks into the table"
+# AND gives grabbable, re-throwable cards in one place.
+func _physics_process(_delta: float) -> void:
+	for c in get_tree().get_nodes_in_group(CARD_GROUP):
+		if not is_instance_valid(c) or not (c is RigidBody3D):
+			continue
+		if not c.has_meta("home"):  # robot card / not a player hand card
+			continue
+		if c.freeze:  # hovering, resting, resolved, or mid-return — all settled/controlled
+			continue
+		if c.has_method("is_picked_up") and c.is_picked_up():  # in the player's hand
+			continue
+		var pos: Vector3 = c.global_position
+		var over_table := Vector2(pos.x, pos.z).distance_to(TABLE_CENTRE) < TABLE_RADIUS
+		# Over the disc and at/below the surface → snap flat on top the instant it touches,
+		# whatever its speed, so a fast card can never sink through (the edge cases). Off the
+		# disc and below floor level → it fell off → fly it home.
+		if over_table and pos.y < TABLE_REST_Y + 0.02:
+			_rest_on_table(c)
+		elif not over_table and pos.y < FLOOR_Y:
+			_return_to_slot(c)
+
+
+# Snap a settled card flat (face-up) onto the table where it lies, frozen so it stays put
+# and stops sinking. Still grabbable — XRToolsPickable unfreezes it on the next pickup.
+func _rest_on_table(card: RigidBody3D) -> void:
+	card.linear_velocity = Vector3.ZERO
+	card.angular_velocity = Vector3.ZERO
+	var p := card.global_position
+	card.freeze = true
+	card.global_transform = Transform3D(
+		Basis(Vector3.RIGHT, -PI / 2), Vector3(p.x, TABLE_REST_Y, p.z)
+	)
+
+
+# A card that fell off the table flies back up to its hovering slot (R-miss recovery).
+# freeze = true makes it kinematic (follows the tween) AND keeps the monitor from re-processing
+# it — so no "returning" flag is needed; it lands hovering and grabbable.
+func _return_to_slot(card: RigidBody3D) -> void:
+	card.linear_velocity = Vector3.ZERO
+	card.angular_velocity = Vector3.ZERO
+	card.freeze = true
+	var tw := create_tween()
+	tw.tween_property(card, "global_transform", card.get_meta("home"), 0.6)
+	tw.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 # ── Card factory (single source of cards + frames) ───────────────────────────
@@ -82,6 +138,10 @@ func deal_player_hand() -> void:
 		var card := make_card(hand[i])
 		add_child(card)
 		card.global_transform = _slots[i].global_transform
+		# Remember where this card hovers — a miss that falls to the floor flies back here.
+		# Only player hand cards carry "home"; the robot's card never does, so the monitor
+		# below leaves it alone.
+		card.set_meta("home", _slots[i].global_transform)
 		# Rest at the slot instead of falling off a floating anchor. XRToolsPickable
 		# unfreezes the card on release so the throw still flies (R1/R2).
 		# ponytail: freeze-at-anchor; swap to an XR Tools snap_zone only if it feels loose in-headset.
