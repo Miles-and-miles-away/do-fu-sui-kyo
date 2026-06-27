@@ -40,6 +40,7 @@ var _mouth: MeshInstance3D  # swaps flat ↔ smile on win/loss
 var _mouth_flat: ArrayMesh  # neutral line mouth
 var _mouth_smile: ArrayMesh  # upturned mouth, shown on a win
 var _tear: MeshInstance3D  # neon tear, hidden until the robot loses
+var _horns: MeshInstance3D  # red 鬼 horns, shown only on HARD
 var _shoulder: Vector3  # arm pivot world position
 var _rest_aim: Vector3  # where the arm points when idle (down-forward, never vertical)
 var _head_card: Node = null  # card the player lobbed into the head (HARD); played next
@@ -60,6 +61,8 @@ func _on_difficulty_changed(level: int) -> void:
 	if _mat:
 		_mat.albedo_color = c
 		_mat.emission = c
+	if _horns:
+		_horns.visible = level == GameState.Difficulty.HARD
 
 
 # Head tracks the player every frame — one look_at on one node, negligible cost (NFR6).
@@ -247,6 +250,18 @@ func _build_body() -> void:
 	_tear.visible = false
 	_head.add_child(_tear)
 
+	# 鬼 horns — two red wireframe cones standing on the head's top face, one over each half
+	# (split at x=0). Their own red material; hidden unless HARD (toggled in _on_difficulty_changed).
+	# Child of _head so they ride its swivel like the eyes/mouth.
+	var top := 0.12  # head box half-height — the top face
+	var horns := PackedVector3Array()
+	_cone(horns, Vector3(-0.065, top, 0.0), Vector3(-0.095, 0.26, 0.0), 0.045)  # left half
+	_cone(horns, Vector3(0.065, top, 0.0), Vector3(0.095, 0.26, 0.0), 0.045)  # right half
+	_horns = MeshInstance3D.new()
+	_horns.mesh = _line_mesh(horns, _make_glow_mat(menace_color))
+	_horns.visible = false  # _on_difficulty_changed sets the real state on _ready
+	_head.add_child(_horns)
+
 	# Right arm — its own pivot at the shoulder. Geometry runs along the LOCAL -Z axis so that
 	# look_at(target) points the whole limb (and claw) straight at the aim point. No IK solver.
 	_shoulder = o + Vector3(0.24, 1.05, -0.02)
@@ -301,6 +316,24 @@ func _cyl_between(parent: Node3D, a: Vector3, b: Vector3, radius: float) -> void
 	var mi := MeshInstance3D.new()
 	mi.mesh = _line_mesh(pts)
 	parent.add_child(mi)
+
+
+# A wireframe cone spanning base→apex: a `sides`-gon base ring (the lines "around the base")
+# plus one slant line from each base vertex up to `apex`. Appends segments to `pts` so several
+# cones can batch into one mesh. Default 6 sides → 6 lines around the base, matching the body.
+func _cone(
+	pts: PackedVector3Array, base: Vector3, apex: Vector3, radius: float, sides: int = 6
+) -> void:
+	var basis := _basis_from_y((apex - base).normalized())  # ring plane ⊥ the base→apex axis
+	var x := basis.x * radius
+	var z := basis.z * radius
+	for i in sides:
+		var a0 := TAU * i / sides
+		var a1 := TAU * (i + 1) / sides
+		var p0 := base + x * cos(a0) + z * sin(a0)
+		var p1 := base + x * cos(a1) + z * sin(a1)
+		_seg(pts, p0, p1)  # base ring edge (one of the 6 lines around the base)
+		_seg(pts, p0, apex)  # slant edge up to the horn tip
 
 
 # Orthonormal basis whose +Y column is `y`, so a Y-aligned primitive points along it.

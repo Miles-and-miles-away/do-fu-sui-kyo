@@ -10,8 +10,10 @@
 # paper-thin, enable continuous_cd on cards, raise physics ticks (done in project.godot).
 extends Area3D
 
-# Floated in the middle as the win celebration (player-victory only). 1500×1500.
-const ICON := preload("res://art/icon.png")
+# Floated in the middle as the win celebration (player-victory only). The circle-cropped variant
+# (transparent corners) — the square art/icon.png stays the launcher icon so Android's adaptive
+# mask doesn't crop the title off it.
+const ICON := preload("res://art/icon_circle.png")
 
 # Time the robot gets to reach out and lay its card down before the win/lose verdict (R21).
 # Must be ≥ RobotPlayer reach+wind+flight (default 1.08) so the thrown card has landed.
