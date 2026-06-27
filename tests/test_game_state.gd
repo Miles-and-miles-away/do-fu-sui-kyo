@@ -65,9 +65,9 @@ func _set_hand(hand: Array, values: Array) -> void:
 func _t2_new_game_start(gs) -> void:
 	gs.new_game()
 	var one_of_each := [gs.Type.WATER, gs.Type.SKY, gs.Type.EARTH]
-	var ph := gs.player_hand.duplicate()
+	var ph = gs.player_hand.duplicate()
 	ph.sort()
-	var rh := gs.robot_hand.duplicate()
+	var rh = gs.robot_hand.duplicate()
 	rh.sort()
 	_check(ph == one_of_each, "T2: player_hand should be one-of-each, got %s" % [gs.player_hand])
 	_check(rh == one_of_each, "T2: robot_hand should be one-of-each, got %s" % [gs.robot_hand])
@@ -112,7 +112,7 @@ func _t4_scoring(gs) -> void:
 	gs.new_game()
 	_set_hand(gs.player_hand, [gs.Type.WATER])
 	_set_hand(gs.robot_hand, [gs.Type.SKY])
-	var r := gs.play_round(gs.Type.WATER)
+	var r = gs.play_round(gs.Type.WATER)
 	_check(
 		r.outcome == 1 and gs.player_score == 1 and gs.robot_score == 0,
 		(
@@ -181,7 +181,7 @@ func _t6_hand_drift(gs) -> void:
 	gs.new_game()
 	_set_hand(gs.player_hand, [gs.Type.WATER, gs.Type.WATER, gs.Type.SKY])  # forced drift
 	_set_hand(gs.robot_hand, [gs.Type.EARTH, gs.Type.SKY, gs.Type.WATER])
-	var r := gs.play_round(gs.Type.WATER)  # throw one of the duplicates
+	var r = gs.play_round(gs.Type.WATER)  # throw one of the duplicates
 	_check(r.outcome in [1, -1, 0], "T6: drifted hand failed to resolve")
 	_check(
 		gs.player_hand.size() == 3 or gs.game_over(),
@@ -214,8 +214,8 @@ func _t7_deck_exhaustion(gs) -> void:
 func _t8_robot_legality(gs) -> void:
 	gs.new_game()
 	_set_hand(gs.robot_hand, [gs.Type.WATER, gs.Type.WATER, gs.Type.SKY])
-	var before_player := gs.player_hand.duplicate()
-	var start_size := gs.robot_hand.size()
+	var before_player = gs.player_hand.duplicate()
+	var start_size = gs.robot_hand.size()
 	var picked = gs.robot_pick()
 	_check(
 		picked == gs.Type.WATER or picked == gs.Type.SKY,
@@ -244,9 +244,9 @@ func _t1_integration(gs) -> void:
 	var prev_total := 0
 	var rounds := 0
 	while not gs.game_over() and rounds < 50:
-		var before := gs.player_score + gs.robot_score
-		var r := gs.play_round(gs.player_hand[0])
-		var after := gs.player_score + gs.robot_score
+		var before = gs.player_score + gs.robot_score
+		var r = gs.play_round(gs.player_hand[0])
+		var after = gs.player_score + gs.robot_score
 		_check(after - before <= 1, "T1: score stepped by more than 1 in a round")
 		_check(after - prev_total <= 1, "T1: cumulative score jumped >1")
 		prev_total = after

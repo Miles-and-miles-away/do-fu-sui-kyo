@@ -30,7 +30,7 @@ func present_card(t: int) -> Node:
 	if use_physics_throw:
 		# Aim at the zone and impulse toward it. CCD on the card (F3) guards against
 		# tunneling through the trigger at speed.
-		var aim := (_play_zone.global_position - card.global_position).normalized()
+		var aim: Vector3 = (_play_zone.global_position - card.global_position).normalized()
 		card.apply_central_impulse(aim * throw_impulse)
 	else:
 		# Fallback (E14): drop it straight into the zone — guarantees an in-zone landing
