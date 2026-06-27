@@ -63,6 +63,12 @@ determined face) until you release it; resolution then locks it to smile/cry.
 - **(B) Transparent background** (critter floats on the card mesh). Keep edges **crisp/hard** —
   soft anti-aliased edges halo under `ALPHA_SCISSOR`. Leave the material as-is (`transparency = 2`).
 
+**What we actually did:** the real art is **transparent character-only PNGs** (background removed
+in Preview), kept in `art/_transparent/`, and `tools/sprites.py bake` composites each onto a solid
+per-critter card colour (`CARD_BG` in the tool — aqua / sky-blue / sage; override with `--bg`).
+That guarantees one uniform background per card (no padding mismatch) and fully opaque edges. The
+baked opaque PNGs in `art/` are what the game loads; re-run `bake` to recolour.
+
 ## 6. Style
 
 Cute, front-facing, **bold flat shapes** (SVG/block-ish, matching the room aesthetic). High
@@ -107,7 +113,8 @@ neutral while held), so you can wire 4 frames first and add the determined pair 
 
 ```
 python tools/sprites.py placeholders [--out art] [--size 512x768]   # regen placeholders
-python tools/sprites.py slice <sheet.png> <fish|bird|dino> [--out art] [--inset N]
+python tools/sprites.py slice <sheet.png> <fish|bird|dino> [--out art] [--inset N] [--bg "#rrggbb"]
+python tools/sprites.py bake <dir> [--out DIR] [--bg "#rrggbb"]      # transparent chars → solid bg
 python tools/sprites.py check <dir>                                  # validate; exit 1 on problems
 python tools/sprites.py normalize <dir> [--out art_normalized] [--size 512x768]
 python tools/sprites.py selftest                                     # self-check the tool
@@ -149,12 +156,9 @@ mouth — chibi, front-facing, centered, symmetrical. Solid flat **soft aqua** b
 scenery. Compose **six portraits of this exact same fish in a clean 2×3 grid** (2 wide, 3 tall),
 equal cells, drawn at the **identical size, position, pose, lighting and framing in every cell**
 — only the expression changes. 
-Row 1: 
-(1) **neutral** — calm, eyes open; (2) **blink** —
-identical but eyes gently closed; 
-Row 2: 
-(3) **determined** — focused and eager, slightly angled brows, a firm set mouth, psyched up, not angry but determined. (4) **determined-blink** — the determined face with eyes
-gently closed; 
+Row 1: (1) **neutral** — calm, eyes open; (2) **blink** — identical but eyes gently closed; 
+Row 2: (3) **determined** — focused and eager, slightly angled brows, a firm set mouth, psyched up, 
+not angry but determined. (4) **determined-blink** — the determined face with eyes gently closed; 
 Row 3: (5) **smile** — big joyful open smile, bright eyes (a winner); (6) **cry** —
 teary downturned eyes with tear drops, wobbly frown (a loser, still cute).
 High-res, **one uniform background colour across all six cells**. **No text, labels, borders,

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Sprite tooling for the 18 card faces (docs/SPRITES.md).
 
-One file, four jobs:
+One file, five jobs:
   placeholders  generate 18 consistent placeholder faces (so nothing is blank pre-art)
   slice         cut a 2x3 expression sheet (nano banana output) into the 6 named files
+  bake          composite transparent character files onto a solid per-critter card bg
   check         validate a folder: all 18 present, identical size, 2:3 aspect, RGBA
   normalize     force all to one identical 2:3 size (letterboxed, no distortion)
 
 2x3 sheet layout (matches docs/SPRITES.md prompts), row-major:
   row1 = neutral, blink ; row2 = determined, determined_blink ; row3 = smile, cry.
-Cells need NOT be 2:3 — slice fits each onto the 2:3 card, padding with the cell's own
-background colour, so square-ish grid cells aren't stretched.
+Cells need NOT be 2:3 — slice fits each onto the 2:3 card on a solid background colour, so
+square-ish grid cells aren't stretched. `bake` does the same for already-cut transparent files.
 
 The naming convention lives HERE and is the single source docs/SPRITES.md points at:
   <critter>_<expression>.png  →  fish/bird/dino × 6 expressions  = 18 files.
@@ -128,7 +129,8 @@ def _fit(tile: Image.Image, size: tuple[int, int], bg: tuple) -> Image.Image:
     scale = min(size[0] / tw, size[1] / th)
     scaled = tile.resize((max(1, round(tw * scale)), max(1, round(th * scale))), Image.LANCZOS)
     canvas = Image.new("RGBA", size, bg)
-    canvas.paste(scaled, ((size[0] - scaled.width) // 2, (size[1] - scaled.height) // 2), scaled)
+    # alpha_composite over the opaque bg → fully opaque result with clean blended edges.
+    canvas.alpha_composite(scaled, ((size[0] - scaled.width) // 2, (size[1] - scaled.height) // 2))
     return canvas
 
 
@@ -164,6 +166,27 @@ def slice_sheet(
             dst = out_dir / f"{critter}_{expr}.png"
             tile.save(dst)
             written.append(dst)
+    return written
+
+
+# ── bake (transparent character files → solid card background) ────────────────
+def bake_backgrounds(folder: Path, out_dir: Path, bg: tuple = None) -> list[Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    for name in expected_names():
+        src = folder / name
+        if not src.exists():
+            continue
+        critter = name.split("_", 1)[0]
+        color = bg if bg else CARD_BG.get(critter, (210, 210, 215, 255))
+        with Image.open(src) as im:
+            im = im.convert("RGBA")
+            canvas = Image.new("RGBA", im.size, color)
+            # alpha_composite (not paste) so anti-aliased edges blend over the OPAQUE bg and
+            # the result is fully opaque everywhere — paste would copy the partial edge alpha.
+            canvas.alpha_composite(im)
+            canvas.save(out_dir / name)
+        written.append(out_dir / name)
     return written
 
 
@@ -241,6 +264,11 @@ def main(argv: list[str]) -> int:
     p.add_argument("--inset", type=int, default=0, help="trim N px off each interior cut (seam guard)")
     p.add_argument("--bg", type=_parse_color, default=None, help='card background "#rrggbb" (else per-critter default)')
 
+    p = sub.add_parser("bake", help="composite transparent character files onto a solid card bg")
+    p.add_argument("dir", type=Path)
+    p.add_argument("--out", type=Path, default=None, help="output dir (default: in place)")
+    p.add_argument("--bg", type=_parse_color, default=None, help='card bg "#rrggbb" (else per-critter)')
+
     p = sub.add_parser("check", help="validate a folder of 18 faces; exit 1 on any problem")
     p.add_argument("dir", type=Path)
 
@@ -264,6 +292,14 @@ def main(argv: list[str]) -> int:
         written = slice_sheet(args.sheet, args.critter, args.out, args.size, args.inset, args.bg)
         print(f"sliced {args.sheet} → {args.out}/: " + ", ".join(p.name for p in written))
         return 0
+
+    if args.cmd == "bake":
+        out = args.out if args.out else args.dir
+        written = bake_backgrounds(args.dir, out, args.bg)
+        print(f"baked {len(written)} → {out}/")
+        ok, problems = check(out)
+        print("check: OK" if ok else "check FAILED:\n  " + "\n  ".join(problems))
+        return 0 if ok else 1
 
     if args.cmd == "check":
         ok, problems = check(args.dir)

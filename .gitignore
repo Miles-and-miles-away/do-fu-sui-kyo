@@ -46,6 +46,10 @@ export_credentials.cfg
 # ── Godot toolchain blobs (install into Godot, never commit) ─
 *.tpz
 
+# ── Art sources: baked PNGs in art/ + transparent source in art/_transparent/ are
+#    tracked; the raw generation sheets are large and superseded — keep them local. ─
+art/_sheets/
+
 # ── Temp files ───────────────────────────────────────────
 # Transient files (e.g. Windows ~name.dll~RF*.TMP written during file replace)
 *.tmp
