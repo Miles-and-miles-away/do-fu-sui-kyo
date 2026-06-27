@@ -14,11 +14,13 @@ extends Node3D
 # whoever spawned it (player deal or robot). StringName literal = no per-call alloc (NFR6).
 const CARD_GROUP := &"card"
 
-# Card.tscn + the 12 frames grouped per type (R8). Assign ONCE in the inspector here.
+# Card.tscn + the 18 frames grouped per type (R8). Assign ONCE in the inspector here.
+# Canonical order (matches docs/SPRITES.md §8 + tools/sprites.py EXPRESSIONS):
+#   [neutral, blink, determined, determined_blink, smile, cry]
 @export var card_scene: PackedScene
-@export var frames_water: Array[Texture2D]  # [neutral, blink, smile, cry]  (Fish)
-@export var frames_sky: Array[Texture2D]  # [neutral, blink, smile, cry]  (Bird)
-@export var frames_earth: Array[Texture2D]  # [neutral, blink, smile, cry]  (Dino)
+@export var frames_water: Array[Texture2D]  # Fish (WATER)
+@export var frames_sky: Array[Texture2D]  # Bird (SKY)
+@export var frames_earth: Array[Texture2D]  # Dino (EARTH)
 
 var _slots: Array = []
 
@@ -43,11 +45,13 @@ func make_card(t: int) -> Node:
 
 func _apply_frames(card: Node, t: int) -> void:
 	var f := _frames_for(t)
-	if f.size() == 4:
-		card.tex_neutral = f[0]
-		card.tex_blink = f[1]
-		card.tex_smile = f[2]
-		card.tex_cry = f[3]
+	# Assign by index in canonical order; tolerant of a short array (a missing determined pair
+	# just won't be set — CardFace falls back to neutral, never breaks).
+	var props := [
+		"tex_neutral", "tex_blink", "tex_determined", "tex_determined_blink", "tex_smile", "tex_cry"
+	]
+	for i in mini(f.size(), props.size()):
+		card.set(props[i], f[i])
 
 
 func _frames_for(t: int) -> Array[Texture2D]:

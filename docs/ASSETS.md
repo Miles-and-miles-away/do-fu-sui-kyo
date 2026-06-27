@@ -76,7 +76,7 @@ scene geometry, so per best-practice (`_dev_notes/godot_tutorials.md §5.2`) it 
 | `game/CardFace.gd` | `Card.tscn` root | ✅ WIRED | Now `extends pickable.gd` with `super()` in `_ready()`. Verify in-headset (T11/T13/T14). |
 | `game/PlayZone.gd` | `PlayZone` (Area3D) | ✅ WIRED | Calls GameRoot to clear/re-deal between rounds; auto-restart on game over. |
 | `game/RobotPlayer.gd` | `RobotPlayer` (Node3D) | ✅ WIRED | Delegates card creation to `GameRoot.make_card()`; keeps only throw vs place. |
-| `game/GameRoot.gd` | `GameRoot` (Node3D) | ✅ DONE | The logic→scene bridge **and** the single Card factory (12 frames assigned here once, used by player deal + robot). Spawns/clears hands; `clear_table()` frees the `card` group each round. |
+| `game/GameRoot.gd` | `GameRoot` (Node3D) | ✅ DONE | The logic→scene bridge **and** the single Card factory (18 frames assigned here once, used by player deal + robot). Spawns/clears hands; `clear_table()` frees the `card` group each round. |
 
 > **Why GameRoot.gd is needed:** `GameState` is headless and holds only `Array[Type]`. Something
 > must turn `player_hand = [WATER, SKY, EARTH]` into three grabbable `Card.tscn` at the slots, and
@@ -142,7 +142,7 @@ Card  ← game/CardFace.gd  (extends XRToolsPickable, i.e. a RigidBody3D)   # gr
     └── surface-override material (StandardMaterial3D, unique per instance)  # F2/E11
         • shading_mode = UNSHADED                                         # crisp 2D-in-3D (§3.1)
         • transparency = ALPHA_SCISSOR (if faces have alpha) else DISABLED
-        • texture_filter = Nearest (pixel) / Linear (smooth) — consistent across all 12 (NFR7)
+        • texture_filter = Nearest (pixel) / Linear (smooth) — consistent across all 18 (NFR7)
         • albedo_texture = current frame (hot-swapped at runtime)
 ```
 
@@ -177,10 +177,10 @@ plain anchors feel loose in-headset.
 
 | Asset | Count | Spec | For |
 |---|---|---|---|
-| Character face frames | **12** (3 critters × 4) | identical crop/size/framing; square; PNG/WebP RGBA | R5, R8, NFR7, T20 |
-| — Fish (WATER) | 4 | neutral · blink · smile · cry | |
-| — Bird (SKY) | 4 | neutral · blink · smile · cry | |
-| — Dino (EARTH) | 4 | neutral · blink · smile · cry | |
+| Character face frames | **18** (3 critters × 6) | identical crop/size/framing; 2:3; PNG RGBA. See `docs/SPRITES.md` | R5, R8, NFR7, T20 |
+| — Fish (WATER) | 6 | neutral · blink · determined · determined_blink · smile · cry | |
+| — Bird (SKY) | 6 | neutral · blink · determined · determined_blink · smile · cry | |
+| — Dino (EARTH) | 6 | neutral · blink · determined · determined_blink · smile · cry | |
 | (optional) Card-back texture | 1 | generic back; only if rendering RobotHandAnchors (R6.2) | ✂️ optional |
 | (optional) Table texture | 1 | simple; or flat color | optional |
 
@@ -188,7 +188,7 @@ plain anchors feel loose in-headset.
 - Compress Mode = **Lossless** (pixel art / crisp), **not** VRAM.
 - **Detect 3D > Compress To = Disabled** (stops auto VRAM-compress on first 3D use).
 - Mipmaps **off** (cards are near-camera, fixed size).
-- Same settings on all 12 (NFR7).
+- Same settings on all 18 (NFR7).
 
 **Lookup (R8):** `type → {neutral, blink, smile, cry}`. Two equivalent options (DESIGN §6 / FSD §5.1):
 - (a) Per-card `@export var tex_*` on `CardFace.gd` (current stub) — assign in inspector.
@@ -196,8 +196,8 @@ plain anchors feel loose in-headset.
   (`fish.tres` / `bird.tres` / `dino.tres`). Cleaner; keeps art out of code. `RobotPlayer.gd`
   already groups frames per type as `Array[Texture2D]` — either feeds it.
 
-> Generate the 12 sprites with an image tool (on-ethos for the event). `environment.yml` ships
-> Python + Pillow for the one scripted task: normalizing all 12 to an identical crop/size.
+> Generate the 18 sprites with an image tool (on-ethos for the event). `environment.yml` ships
+> Python + Pillow for the scripted tasks: slicing 3×2 sheets + normalizing all 18 to an identical crop/size.
 
 ---
 

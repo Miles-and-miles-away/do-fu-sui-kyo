@@ -1,21 +1,22 @@
 # 土風水競 — Card face sprite spec
 
-The 12 card faces (R5, R8, NFR7, T20). Companion to `docs/FSD.md` (requirements) and
-`docs/ASSETS.md §5` (asset manifest). Tooling: `tools/sprites.py` (generate / check / normalize).
+The 18 card faces (R5, R8, NFR7, T20 — extended from the FSD's 4 frames to **6** by adding a
+`determined` pair shown while a card is held). Companion to `docs/FSD.md` (requirements) and
+`docs/ASSETS.md §5` (asset manifest). Tooling: `tools/sprites.py` (placeholders / slice / check / normalize).
 
 Placeholders already exist in `art/` so faces aren't blank — replace them with real art at the
 **same names, same size**, run `python tools/sprites.py check art`, re-import. Nothing else changes.
 
 ---
 
-## 1. Inventory — exactly 12 files
+## 1. Inventory — exactly 18 files
 
-3 critters × 4 expressions. Filenames (the convention lives in `tools/sprites.py`):
+3 critters × 6 expressions. Filenames (the convention lives in `tools/sprites.py`):
 
 ```
-fish_neutral.png  fish_blink.png  fish_smile.png  fish_cry.png      # WATER (0)
-bird_neutral.png  bird_blink.png  bird_smile.png  bird_cry.png      # SKY   (1)
-dino_neutral.png  dino_blink.png  dino_smile.png  dino_cry.png      # EARTH (2)
+fish_{neutral,blink,determined,determined_blink,smile,cry}.png   # WATER (0)
+bird_{neutral,blink,determined,determined_blink,smile,cry}.png   # SKY   (1)
+dino_{neutral,blink,determined,determined_blink,smile,cry}.png   # EARTH (2)
 ```
 
 `fish→WATER, bird→SKY, dino→EARTH` matches `GameState.Type` / `GameRoot.frames_*`.
@@ -26,17 +27,17 @@ dino_neutral.png  dino_blink.png  dino_smile.png  dino_cry.png      # EARTH (2)
 - **2:3 portrait** to match the card mesh (`Card.tscn` quad is 0.1 × 0.15 m). Use **512 × 768**
   (or any 2:3, e.g. 1024 × 1536). A square image gets vertically stretched on the card.
   *(Prefer square art? Say so and the quad changes to square instead.)*
-- **All 12 identical dimensions** — non-negotiable (NFR7). `tools/sprites.py check` enforces it.
+- **All 18 identical dimensions** — non-negotiable (NFR7). `tools/sprites.py check` enforces it.
 - Mipmaps will be off, so power-of-two isn't needed.
 
 ## 3. The #1 rule — framing consistency (NFR7)
 
-Across all 12, the head sits at the **same position, scale, and baseline**. Between a critter's
-4 frames, **only the face features change** (eyes, mouth, tears) — the head outline is identical.
-If the head shifts/resizes between frames, blink/smile/cry will visibly *jump*.
+Across all 18, the head sits at the **same position, scale, and baseline**. Between a critter's
+6 frames, **only the face features change** (eyes, brows, mouth, tears) — the head outline is
+identical. If the head shifts/resizes between frames, the expressions will visibly *jump*.
 
-How to guarantee it: draw **neutral as the master**, then make blink/smile/cry by editing only
-the eyes/mouth on a copy, onion-skinned over neutral. Don't redraw the head.
+How to guarantee it: draw **neutral as the master**, then make the other 5 by editing only the
+eyes/brows/mouth on a copy, onion-skinned over neutral. Don't redraw the head.
 
 ## 4. Per-expression intent
 
@@ -44,10 +45,15 @@ the eyes/mouth on a copy, onion-skinned over neutral. Don't redraw the head.
 |---|---|---|---|
 | **neutral** | open | calm/small | resting (R6) |
 | **blink** | **closed** (only the eyes differ from neutral) | same as neutral | ~150 ms every 3–4.5 s (R6) |
+| **determined** | open, focused (slightly angled brows) | firm/set | **while held/selected** (on grab) |
+| **determined_blink** | **closed** (determined eyes-closed) | firm/set | blink while held (~150 ms) |
 | **smile** | open, bright | big upturn | round winner (R7) |
 | **cry** | open + tears | downturn | round loser (R7) |
 
-## 5. Background — pick one, use for all 12
+The two `determined` frames are the held state: grab a card and it psyches up (and blinks the
+determined face) until you release it; resolution then locks it to smile/cry.
+
+## 5. Background — pick one, use for all 18
 
 - **(A, recommended) Opaque solid background** filling the 2:3 frame (looks like a printed card).
   No alpha artifacts, cheapest on Quest. The placeholders use this. Works as-is, **but** for real
@@ -64,32 +70,35 @@ contrast, readable at arm's length in VR — not fine detail. Consistency over p
 
 ## 7. Godot import settings (F4 — or faces blur/halo on device)
 
-Per file (or set once and apply to all 12 via a preset):
+Per file (or set once and apply to all 18 via a preset):
 
 - Compress Mode = **Lossless** (not VRAM)
 - **Detect 3D → Compress To = Disabled**
 - Mipmaps = **off**
-- Filter = **Linear** (or Nearest for pixel art) — the *same* on all 12
-- Identical settings across all 12 (NFR7).
+- Filter = **Linear** (or Nearest for pixel art) — the *same* on all 18
+- Identical settings across all 18 (NFR7).
 
 ## 8. Assigning in Godot
 
-After import, select **GameRoot** in `main.tscn` and fill the three arrays **in order
-`[neutral, blink, smile, cry]`**:
+After import, select **GameRoot** in `main.tscn` and fill the three arrays **in canonical order
+`[neutral, blink, determined, determined_blink, smile, cry]`** (same order as the slicer and
+`tools/sprites.py`):
 
-- `frames_water` ← fish_neutral, fish_blink, fish_smile, fish_cry
-- `frames_sky`   ← bird_neutral, bird_blink, bird_smile, bird_cry
-- `frames_earth` ← dino_neutral, dino_blink, dino_smile, dino_cry
+- `frames_water` ← the 6 `fish_*` frames in that order
+- `frames_sky`   ← the 6 `bird_*` frames
+- `frames_earth` ← the 6 `dino_*` frames
 
 GameRoot is the single source of frames — the robot pulls from the same place, so nothing is
-assigned twice.
+assigned twice. A short array is tolerated (a missing `determined` pair just falls back to
+neutral while held), so you can wire 4 frames first and add the determined pair later.
 
 ## 9. Process
 
 1. Lock style + the 3 critter designs.
 2. Draw each **neutral master** at final canvas size.
-3. Derive blink/smile/cry by editing only the face, onion-skinned over neutral.
-4. Export all 12 at identical 2:3 size, exact names from §1.
+3. Derive the other 5 (blink, determined, determined_blink, smile, cry) by editing only the face,
+   onion-skinned over neutral.
+4. Export all 18 at identical 2:3 size, exact names from §1.
 5. **Validate:** `python tools/sprites.py check <dir>` → must print "OK". If sizes drift,
    `python tools/sprites.py normalize <dir> --out art_fixed` letterboxes them all to one size.
 6. Drop into `art/`, import with §7 settings, assign per §8.
@@ -106,9 +115,14 @@ python tools/sprites.py selftest                                     # self-chec
 
 ## 11. Generation prompts (Gemini "nano banana")
 
-One prompt **per character**, each producing a single **2×2 grid** (4 expressions). Four 2:3
-tiles in a 2×2 grid is itself 2:3, so the sheet slices into four clean cards. Layout (fixed):
-**TL = neutral, TR = blink, BL = smile, BR = cry** — `tools/sprites.py slice` assumes exactly this.
+One prompt **per character**, each producing a single **3×2 grid** (6 expressions). Six 2:3
+tiles in a 3-wide × 2-tall grid make a **square (1:1) sheet** where each cell is still 2:3, so it
+slices into six clean cards. Layout (row-major, fixed — `tools/sprites.py slice` assumes exactly this):
+
+```
+row 1:  neutral | blink | determined
+row 2:  determined_blink | smile | cry
+```
 
 **Workflow:** generate a character → save the sheet (e.g. `art/_sheets/fish.png`) →
 `python tools/sprites.py slice art/_sheets/fish.png fish` → repeat for bird/dino →
@@ -126,13 +140,15 @@ proportions — same world, different animal."*
 > thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
 > texture. A round friendly aqua-teal fish, big round sparkly eyes, small rounded fins, tiny
 > mouth — chibi, front-facing, centered, symmetrical. Solid flat **soft aqua** background, no
-> scenery. Compose **four portraits of this exact same fish in a clean 2×2 grid**, equal cells,
-> drawn at the **identical size, position, pose, lighting and framing in every cell** — only the
-> expression changes. TL neutral (calm, eyes open); TR blink (identical but eyes gently closed);
-> BL smile (big joyful open smile, bright eyes — a winner); BR cry (teary downturned eyes with
-> tear drops, wobbly frown — a loser, still cute). Aspect ratio **2:3 portrait**, high-res,
-> seamless same-color background across all cells. **No text, labels, borders, watermark, extra
-> characters, or background objects.**
+> scenery. Compose **six portraits of this exact same fish in a clean 3×2 grid** (3 wide, 2 tall),
+> equal cells, drawn at the **identical size, position, pose, lighting and framing in every cell**
+> — only the expression changes. Row 1: (1) **neutral** — calm, eyes open; (2) **blink** —
+> identical but eyes gently closed; (3) **determined** — focused and eager, slightly angled brows,
+> a firm set mouth, psyched up. Row 2: (4) **determined-blink** — the determined face with eyes
+> gently closed; (5) **smile** — big joyful open smile, bright eyes (a winner); (6) **cry** —
+> teary downturned eyes with tear drops, wobbly frown (a loser, still cute). Overall sheet aspect
+> **square (1:1)**, each cell a 2:3 portrait, high-res, seamless same-color background across all
+> cells. **No text, labels, borders, watermark, extra characters, or background objects.**
 
 > **Bird (SKY)** — …same paragraph, swapping the subject for a round fluffy **warm-yellow/coral
 > baby bird** with tiny stubby wings and a small orange beak, on a **pale sky-blue** background.

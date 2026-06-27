@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Sprite tooling for the 12 card faces (docs/SPRITES.md).
+"""Sprite tooling for the 18 card faces (docs/SPRITES.md).
 
 One file, four jobs:
-  placeholders  generate 12 consistent placeholder faces (so nothing is blank pre-art)
-  slice         cut a 2x2 expression sheet (nano banana output) into the 4 named files
-  check         validate a folder: all 12 present, identical size, 2:3 aspect, RGBA
-  normalize     force all 12 to one identical 2:3 size (letterboxed, no distortion)
+  placeholders  generate 18 consistent placeholder faces (so nothing is blank pre-art)
+  slice         cut a 3x2 expression sheet (nano banana output) into the 6 named files
+  check         validate a folder: all 18 present, identical size, 2:3 aspect, RGBA
+  normalize     force all to one identical 2:3 size (letterboxed, no distortion)
 
-2x2 sheet layout (matches docs/SPRITES.md prompts): TL=neutral TR=blink BL=smile BR=cry.
+3x2 sheet layout (matches docs/SPRITES.md prompts), row-major:
+  row1 = neutral, blink, determined ; row2 = determined_blink, smile, cry.
 
 The naming convention lives HERE and is the single source docs/SPRITES.md points at:
-  <critter>_<expression>.png  →  fish/bird/dino × neutral/blink/smile/cry  = 12 files.
+  <critter>_<expression>.png  →  fish/bird/dino × 6 expressions  = 18 files.
 
 Run the self-check (ponytail: the one runnable check this leaves behind):
   python tools/sprites.py selftest
@@ -28,7 +29,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 # fish=WATER, bird=SKY, dino=EARTH — order matches GameState.Type / GameRoot.frames_*.
 CRITTERS = ["fish", "bird", "dino"]
-EXPRESSIONS = ["neutral", "blink", "smile", "cry"]  # array order GameRoot expects
+# Canonical order — same in the GRID (row-major), GameRoot.frames_*, and docs/SPRITES.md §8.
+# blink = neutral eyes-closed; determined_blink = determined eyes-closed (shown while held).
+EXPRESSIONS = ["neutral", "blink", "determined", "determined_blink", "smile", "cry"]
+GRID_COLS, GRID_ROWS = 3, 2  # `slice` sheet layout; COLS*ROWS must equal len(EXPRESSIONS)
 DEFAULT_SIZE = (512, 768)  # 2:3 portrait, matching the Card.tscn quad (0.1 × 0.15 m)
 ASPECT = 2 / 3
 
@@ -56,9 +60,10 @@ def _draw_face(critter: str, expr: str, size: tuple[int, int]) -> Image.Image:
     cx, cy, r = w // 2, int(h * 0.43), int(w * 0.40)
     d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=head + (255,), outline=ink + (255,), width=6)
 
+    closed = expr in ("blink", "determined_blink")  # eyes-closed frames
     eye_dx, eye_y, eye_r = int(w * 0.16), int(h * 0.38), int(w * 0.055)
     for ex in (cx - eye_dx, cx + eye_dx):
-        if expr == "blink":  # closed eyes = horizontal bars
+        if closed:  # closed eyes = horizontal bars
             d.line((ex - eye_r, eye_y, ex + eye_r, eye_y), fill=ink + (255,), width=10)
         else:
             d.ellipse((ex - eye_r, eye_y - eye_r, ex + eye_r, eye_y + eye_r), fill=ink + (255,))
@@ -66,12 +71,19 @@ def _draw_face(critter: str, expr: str, size: tuple[int, int]) -> Image.Image:
             tx, ty = ex, eye_y + int(h * 0.05)
             d.ellipse((tx - 9, ty - 14, tx + 9, ty + 14), fill=(120, 190, 240, 255))
 
+    if expr in ("determined", "determined_blink"):  # angled focused brows (inner end lower)
+        by, drop = eye_y - int(h * 0.06), 18
+        d.line((cx - eye_dx - eye_r, by, cx - eye_dx + eye_r, by + drop), fill=ink + (255,), width=11)
+        d.line((cx + eye_dx - eye_r, by + drop, cx + eye_dx + eye_r, by), fill=ink + (255,), width=11)
+
     mx, my, mw = cx, int(h * 0.55), int(w * 0.22)
     mbox = (mx - mw, my - mw, mx + mw, my + mw)
     if expr == "smile":
         d.arc(mbox, 0, 180, fill=ink + (255,), width=12)  # U = happy
     elif expr == "cry":
         d.arc((mbox[0], mbox[1] + mw, mbox[2], mbox[3] + mw), 180, 360, fill=ink + (255,), width=12)
+    elif expr in ("determined", "determined_blink"):  # firm set mouth
+        d.line((mx - mw, my, mx + mw, my), fill=ink + (255,), width=14)
     else:  # neutral / blink — small straight mouth
         d.line((mx - mw // 2, my, mx + mw // 2, my), fill=ink + (255,), width=10)
 
@@ -97,11 +109,8 @@ def generate_placeholders(out_dir: Path, size: tuple[int, int] = DEFAULT_SIZE) -
     return written
 
 
-# ── slice (2x2 sheet → 4 named files) ────────────────────────────────────────
-# Quadrant → expression, matching the generation prompts in docs/SPRITES.md.
-SHEET_LAYOUT = ["neutral", "blink", "smile", "cry"]  # TL, TR, BL, BR
-
-
+# ── slice (GRID_COLS×GRID_ROWS sheet → named files) ──────────────────────────
+# Cells are read row-major into EXPRESSIONS, matching the generation prompt in docs/SPRITES.md.
 def slice_sheet(
     sheet: Path,
     critter: str,
@@ -116,17 +125,18 @@ def slice_sheet(
     with Image.open(sheet) as im:
         im = im.convert("RGBA")
         w, h = im.size
-        mx, my = w // 2, h // 2
-        # inset trims a few px off each interior cut edge — a guard for sheets with a faint
-        # seam/gutter between cells (AI grids sometimes have one). 0 = exact midline cut.
-        boxes = {
-            "neutral": (0, 0, mx - inset, my - inset),
-            "blink": (mx + inset, 0, w, my - inset),
-            "smile": (0, my + inset, mx - inset, h),
-            "cry": (mx + inset, my + inset, w, h),
-        }
-        for expr in SHEET_LAYOUT:
-            tile = im.crop(boxes[expr]).resize(size, Image.LANCZOS)
+        cw, ch = w // GRID_COLS, h // GRID_ROWS
+        for idx, expr in enumerate(EXPRESSIONS):
+            r, c = divmod(idx, GRID_COLS)
+            # inset trims px off each INTERIOR cut edge — a guard for sheets with a faint
+            # seam between cells (AI grids sometimes have one). 0 = exact grid-line cut.
+            box = (
+                c * cw + (inset if c > 0 else 0),
+                r * ch + (inset if r > 0 else 0),
+                (c + 1) * cw - (inset if c < GRID_COLS - 1 else 0),
+                (r + 1) * ch - (inset if r < GRID_ROWS - 1 else 0),
+            )
+            tile = im.crop(box).resize(size, Image.LANCZOS)
             dst = out_dir / f"{critter}_{expr}.png"
             tile.save(dst)
             written.append(dst)
@@ -190,21 +200,21 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Card-face sprite tooling (docs/SPRITES.md).")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("placeholders", help="generate the 12 placeholder faces")
+    p = sub.add_parser("placeholders", help="generate the 18 placeholder faces")
     p.add_argument("--out", type=Path, default=Path("art"))
     p.add_argument("--size", type=_parse_size, default=DEFAULT_SIZE)
 
-    p = sub.add_parser("slice", help="cut a 2x2 expression sheet into the 4 named files")
+    p = sub.add_parser("slice", help="cut a 3x2 expression sheet into the 6 named files")
     p.add_argument("sheet", type=Path)
     p.add_argument("critter", choices=CRITTERS)
     p.add_argument("--out", type=Path, default=Path("art"))
     p.add_argument("--size", type=_parse_size, default=DEFAULT_SIZE)
     p.add_argument("--inset", type=int, default=0, help="trim N px off each interior cut (seam guard)")
 
-    p = sub.add_parser("check", help="validate a folder of 12 faces; exit 1 on any problem")
+    p = sub.add_parser("check", help="validate a folder of 18 faces; exit 1 on any problem")
     p.add_argument("dir", type=Path)
 
-    p = sub.add_parser("normalize", help="force all 12 to one identical 2:3 size")
+    p = sub.add_parser("normalize", help="force all to one identical 2:3 size")
     p.add_argument("dir", type=Path)
     p.add_argument("--out", type=Path, default=Path("art_normalized"))
     p.add_argument("--size", type=_parse_size, default=DEFAULT_SIZE)
@@ -227,7 +237,8 @@ def main(argv: list[str]) -> int:
 
     if args.cmd == "check":
         ok, problems = check(args.dir)
-        print(f"{args.dir}: " + ("OK — 12 consistent 2:3 RGBA frames" if ok else "PROBLEMS:"))
+        n = len(expected_names())
+        print(f"{args.dir}: " + (f"OK — {n} consistent 2:3 RGBA frames" if ok else "PROBLEMS:"))
         for pr in problems:
             print("  -", pr)
         return 0 if ok else 1
@@ -242,8 +253,8 @@ def main(argv: list[str]) -> int:
             generate_placeholders(Path(td))
             ok, problems = check(Path(td))
             assert ok, f"selftest failed: {problems}"
-            assert len(list(Path(td).glob("*.png"))) == 12
-        print("selftest OK: 12 placeholders generated and validated")
+            assert len(list(Path(td).glob("*.png"))) == len(expected_names())
+        print(f"selftest OK: {len(expected_names())} placeholders generated and validated")
         return 0
 
     return 2
