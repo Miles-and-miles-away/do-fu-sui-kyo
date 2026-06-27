@@ -35,6 +35,13 @@ CRITTERS = ["fish", "bird", "dino"]
 # blink = neutral eyes-closed; determined_blink = determined eyes-closed (shown while held).
 EXPRESSIONS = ["neutral", "blink", "determined", "determined_blink", "smile", "cry"]
 GRID_COLS, GRID_ROWS = 2, 3  # `slice` sheet layout; COLS*ROWS must equal len(EXPRESSIONS)
+# Solid card background painted behind each (ideally transparent) character, per critter.
+# Override per run with --bg "#rrggbb". One uniform colour per card = no padding mismatch.
+CARD_BG = {
+    "fish": (176, 223, 227, 255),  # soft aqua
+    "bird": (188, 214, 240, 255),  # pale sky-blue
+    "dino": (191, 216, 182, 255),  # soft sage-green
+}
 DEFAULT_SIZE = (512, 768)  # 2:3 portrait, matching the Card.tscn quad (0.1 × 0.15 m)
 ASPECT = 2 / 3
 
@@ -112,16 +119,14 @@ def generate_placeholders(out_dir: Path, size: tuple[int, int] = DEFAULT_SIZE) -
 
 
 # ── slice (GRID_COLS×GRID_ROWS sheet → named files) ──────────────────────────
-def _fit(tile: Image.Image, size: tuple[int, int]) -> Image.Image:
-    # Scale `tile` to fit INSIDE `size` preserving aspect, padding with the tile's own
-    # background colour (sampled from a corner). A square cell lands on the 2:3 card with
-    # matching bg bars instead of being stretched — no distortion, no visible seam.
+def _fit(tile: Image.Image, size: tuple[int, int], bg: tuple) -> Image.Image:
+    # Scale `tile` to fit INSIDE `size` preserving aspect, then composite onto a solid `bg`
+    # card colour. Made for transparent character art (bg shows around the critter) — every
+    # card gets the exact same background, so there's no padding-colour mismatch. Opaque art
+    # still works (it just covers the bg), but its own baked background carries through.
     tw, th = tile.size
     scale = min(size[0] / tw, size[1] / th)
     scaled = tile.resize((max(1, round(tw * scale)), max(1, round(th * scale))), Image.LANCZOS)
-    bg = tile.getpixel((1, 1))
-    if not isinstance(bg, tuple):
-        bg = (bg, bg, bg, 255)
     canvas = Image.new("RGBA", size, bg)
     canvas.paste(scaled, ((size[0] - scaled.width) // 2, (size[1] - scaled.height) // 2), scaled)
     return canvas
@@ -134,9 +139,11 @@ def slice_sheet(
     out_dir: Path,
     size: tuple[int, int] = DEFAULT_SIZE,
     inset: int = 0,
+    bg: tuple = None,
 ) -> list[Path]:
     if critter not in CRITTERS:
         raise SystemExit(f"unknown critter {critter!r}; expected one of {CRITTERS}")
+    card_bg = bg if bg else CARD_BG.get(critter, (210, 210, 215, 255))
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
     with Image.open(sheet) as im:
@@ -153,7 +160,7 @@ def slice_sheet(
                 (c + 1) * cw - (inset if c < GRID_COLS - 1 else 0),
                 (r + 1) * ch - (inset if r < GRID_ROWS - 1 else 0),
             )
-            tile = _fit(im.crop(box), size)
+            tile = _fit(im.crop(box), size, card_bg)
             dst = out_dir / f"{critter}_{expr}.png"
             tile.save(dst)
             written.append(dst)
@@ -213,6 +220,11 @@ def _parse_size(s: str) -> tuple[int, int]:
     return w, h
 
 
+def _parse_color(s: str) -> tuple:
+    s = s.lstrip("#")
+    return tuple(int(s[i : i + 2], 16) for i in (0, 2, 4)) + (255,)
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="Card-face sprite tooling (docs/SPRITES.md).")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -227,6 +239,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--out", type=Path, default=Path("art"))
     p.add_argument("--size", type=_parse_size, default=DEFAULT_SIZE)
     p.add_argument("--inset", type=int, default=0, help="trim N px off each interior cut (seam guard)")
+    p.add_argument("--bg", type=_parse_color, default=None, help='card background "#rrggbb" (else per-critter default)')
 
     p = sub.add_parser("check", help="validate a folder of 18 faces; exit 1 on any problem")
     p.add_argument("dir", type=Path)
@@ -248,7 +261,7 @@ def main(argv: list[str]) -> int:
         return 0 if ok else 1
 
     if args.cmd == "slice":
-        written = slice_sheet(args.sheet, args.critter, args.out, args.size, args.inset)
+        written = slice_sheet(args.sheet, args.critter, args.out, args.size, args.inset, args.bg)
         print(f"sliced {args.sheet} → {args.out}/: " + ", ".join(p.name for p in written))
         return 0
 
