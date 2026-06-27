@@ -27,10 +27,11 @@ jobs:
     # ponytail: version knob — must match the editor (project.godot says 4.7).
     # If this image tag doesn't exist yet, download the headless binary from
     # github.com/godotengine/godot/releases instead.
-    container: barichello/godot-ci:4.7.0
+    container: barichello/godot-ci:4.7
     steps:
       - uses: actions/checkout@v4
       - name: compile-check every script
+        shell: bash  # container default is sh; the loop below uses process substitution
         run: |
           fail=0
           while IFS= read -r f; do
