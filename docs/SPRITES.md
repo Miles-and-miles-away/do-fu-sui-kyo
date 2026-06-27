@@ -115,14 +115,20 @@ python tools/sprites.py selftest                                     # self-chec
 
 ## 11. Generation prompts (Gemini "nano banana")
 
-One prompt **per character**, each producing a single **3×2 grid** (6 expressions). Six 2:3
-tiles in a 3-wide × 2-tall grid make a **square (1:1) sheet** where each cell is still 2:3, so it
-slices into six clean cards. Layout (row-major, fixed — `tools/sprites.py slice` assumes exactly this):
+One prompt **per character**, each producing a single **2×3 grid** (6 expressions, 2 wide × 3
+tall). The slicer reads cells row-major into the six frames and **fits each onto the 2:3 card**,
+so the grid cells don't have to be 2:3 themselves (square cells are fine — they're padded, not
+stretched). Layout (fixed — `tools/sprites.py slice` assumes exactly this):
 
 ```
-row 1:  neutral | blink | determined
-row 2:  determined_blink | smile | cry
+row 1:  neutral | blink
+row 2:  determined | determined_blink
+row 3:  smile | cry
 ```
+
+Ask for **one uniform background colour across all six cells** — nano banana sometimes alternates
+cell shades; the slicer pads each card with that cell's own colour, so a uniform sheet keeps all
+six card backgrounds matching.
 
 **Workflow:** generate a character → save the sheet (e.g. `art/_sheets/fish.png`) →
 `python tools/sprites.py slice art/_sheets/fish.png fish` → repeat for bird/dino →
@@ -136,25 +142,50 @@ room · dead-front, centered, symmetrical · solid flat pastel background, no sc
 Bird and Dino with *"match this image's exact art style, line weight, shading, eye style and
 proportions — same world, different animal."*
 
-> **Fish (WATER)** — A cute kawaii mascot **fish** card face. Flat modern vector illustration:
-> thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
-> texture. A round friendly aqua-teal fish, big round sparkly eyes, small rounded fins, tiny
-> mouth — chibi, front-facing, centered, symmetrical. Solid flat **soft aqua** background, no
-> scenery. Compose **six portraits of this exact same fish in a clean 3×2 grid** (3 wide, 2 tall),
-> equal cells, drawn at the **identical size, position, pose, lighting and framing in every cell**
-> — only the expression changes. Row 1: (1) **neutral** — calm, eyes open; (2) **blink** —
-> identical but eyes gently closed; (3) **determined** — focused and eager, slightly angled brows,
-> a firm set mouth, psyched up. Row 2: (4) **determined-blink** — the determined face with eyes
-> gently closed; (5) **smile** — big joyful open smile, bright eyes (a winner); (6) **cry** —
-> teary downturned eyes with tear drops, wobbly frown (a loser, still cute). Overall sheet aspect
-> **square (1:1)**, each cell a 2:3 portrait, high-res, seamless same-color background across all
-> cells. **No text, labels, borders, watermark, extra characters, or background objects.**
+**Fish** — A cute kawaii mascot **fish** card face. Flat modern vector illustration:
+thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+texture. A round friendly aqua-teal fish, big round sparkly eyes, small rounded fins, tiny
+mouth — chibi, front-facing, centered, symmetrical. Solid flat **soft aqua** background, no
+scenery. Compose **six portraits of this exact same fish in a clean 2×3 grid** (2 wide, 3 tall),
+equal cells, drawn at the **identical size, position, pose, lighting and framing in every cell**
+— only the expression changes. 
+Row 1: 
+(1) **neutral** — calm, eyes open; (2) **blink** —
+identical but eyes gently closed; 
+Row 2: 
+(3) **determined** — focused and eager, slightly angled brows, a firm set mouth, psyched up, not angry but determined. (4) **determined-blink** — the determined face with eyes
+gently closed; 
+Row 3: (5) **smile** — big joyful open smile, bright eyes (a winner); (6) **cry** —
+teary downturned eyes with tear drops, wobbly frown (a loser, still cute).
+High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
+watermark, extra characters, or background objects.**
 
-> **Bird (SKY)** — …same paragraph, swapping the subject for a round fluffy **warm-yellow/coral
-> baby bird** with tiny stubby wings and a small orange beak, on a **pale sky-blue** background.
+**Bird** — A cute kawaii mascot **baby bird** card face. Flat modern vector illustration:
+thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+texture. A round fluffy warm-yellow/coral chick, big round sparkly eyes, tiny stubby wings, a
+small orange beak — chibi, front-facing, centered, symmetrical. Solid flat **pale sky-blue**
+background, no scenery. Compose **six portraits of this exact same bird in a clean 2×3 grid**
+(2 wide, 3 tall), equal cells, drawn at the **identical size, position, pose, lighting and
+framing in every cell** — only the expression changes.
+Row 1: (1) **neutral** — calm, eyes open; (2) **blink** — identical but eyes gently closed;
+Row 2: (3) **determined** — focused and eager, slightly angled brows, a firm set beak, psyched
+up, not angry but determined; (4) **determined-blink** — the determined face with eyes gently closed;
+Row 3: (5) **smile** — big joyful open smile/chirp, bright eyes (a winner); (6) **cry** — teary
+downturned eyes with tear drops, wobbly frown (a loser, still cute).
+High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
+watermark, extra characters, or background objects.**
 
-> **Dino (EARTH)** — …same paragraph, swapping the subject for a chunky **leaf-green baby
-> dinosaur** with a rounded belly and small soft back spikes, on a **soft sage-green** background.
-
-(Full Bird/Dino prompts are identical in structure to Fish — only the subject sentence and
-background colour change.)
+**Dino** — A cute kawaii mascot **baby dinosaur** card face. Flat modern vector illustration:
+thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+texture. A round chunky leaf-green baby dino with a rounded belly, small soft back spikes, stubby
+arms and big round sparkly eyes — chibi, front-facing, centered, symmetrical. Solid flat **soft
+sage-green** background, no scenery. Compose **six portraits of this exact same dino in a clean
+2×3 grid** (2 wide, 3 tall), equal cells, drawn at the **identical size, position, pose, lighting
+and framing in every cell** — only the expression changes.
+Row 1: (1) **neutral** — calm, eyes open; (2) **blink** — identical but eyes gently closed;
+Row 2: (3) **determined** — focused and eager, slightly angled brows, a firm set mouth, psyched
+up, not angry but determined; (4) **determined-blink** — the determined face with eyes gently closed;
+Row 3: (5) **smile** — big joyful open smile, bright eyes (a winner); (6) **cry** — teary
+downturned eyes with tear drops, wobbly frown (a loser, still cute).
+High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
+watermark, extra characters, or background objects.**

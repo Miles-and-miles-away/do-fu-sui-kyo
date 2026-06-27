@@ -3,12 +3,14 @@
 
 One file, four jobs:
   placeholders  generate 18 consistent placeholder faces (so nothing is blank pre-art)
-  slice         cut a 3x2 expression sheet (nano banana output) into the 6 named files
+  slice         cut a 2x3 expression sheet (nano banana output) into the 6 named files
   check         validate a folder: all 18 present, identical size, 2:3 aspect, RGBA
   normalize     force all to one identical 2:3 size (letterboxed, no distortion)
 
-3x2 sheet layout (matches docs/SPRITES.md prompts), row-major:
-  row1 = neutral, blink, determined ; row2 = determined_blink, smile, cry.
+2x3 sheet layout (matches docs/SPRITES.md prompts), row-major:
+  row1 = neutral, blink ; row2 = determined, determined_blink ; row3 = smile, cry.
+Cells need NOT be 2:3 — slice fits each onto the 2:3 card, padding with the cell's own
+background colour, so square-ish grid cells aren't stretched.
 
 The naming convention lives HERE and is the single source docs/SPRITES.md points at:
   <critter>_<expression>.png  →  fish/bird/dino × 6 expressions  = 18 files.
@@ -32,7 +34,7 @@ CRITTERS = ["fish", "bird", "dino"]
 # Canonical order — same in the GRID (row-major), GameRoot.frames_*, and docs/SPRITES.md §8.
 # blink = neutral eyes-closed; determined_blink = determined eyes-closed (shown while held).
 EXPRESSIONS = ["neutral", "blink", "determined", "determined_blink", "smile", "cry"]
-GRID_COLS, GRID_ROWS = 3, 2  # `slice` sheet layout; COLS*ROWS must equal len(EXPRESSIONS)
+GRID_COLS, GRID_ROWS = 2, 3  # `slice` sheet layout; COLS*ROWS must equal len(EXPRESSIONS)
 DEFAULT_SIZE = (512, 768)  # 2:3 portrait, matching the Card.tscn quad (0.1 × 0.15 m)
 ASPECT = 2 / 3
 
@@ -110,6 +112,21 @@ def generate_placeholders(out_dir: Path, size: tuple[int, int] = DEFAULT_SIZE) -
 
 
 # ── slice (GRID_COLS×GRID_ROWS sheet → named files) ──────────────────────────
+def _fit(tile: Image.Image, size: tuple[int, int]) -> Image.Image:
+    # Scale `tile` to fit INSIDE `size` preserving aspect, padding with the tile's own
+    # background colour (sampled from a corner). A square cell lands on the 2:3 card with
+    # matching bg bars instead of being stretched — no distortion, no visible seam.
+    tw, th = tile.size
+    scale = min(size[0] / tw, size[1] / th)
+    scaled = tile.resize((max(1, round(tw * scale)), max(1, round(th * scale))), Image.LANCZOS)
+    bg = tile.getpixel((1, 1))
+    if not isinstance(bg, tuple):
+        bg = (bg, bg, bg, 255)
+    canvas = Image.new("RGBA", size, bg)
+    canvas.paste(scaled, ((size[0] - scaled.width) // 2, (size[1] - scaled.height) // 2), scaled)
+    return canvas
+
+
 # Cells are read row-major into EXPRESSIONS, matching the generation prompt in docs/SPRITES.md.
 def slice_sheet(
     sheet: Path,
@@ -136,7 +153,7 @@ def slice_sheet(
                 (c + 1) * cw - (inset if c < GRID_COLS - 1 else 0),
                 (r + 1) * ch - (inset if r < GRID_ROWS - 1 else 0),
             )
-            tile = im.crop(box).resize(size, Image.LANCZOS)
+            tile = _fit(im.crop(box), size)
             dst = out_dir / f"{critter}_{expr}.png"
             tile.save(dst)
             written.append(dst)
