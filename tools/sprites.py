@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Sprite tooling for the 12 card faces (docs/SPRITES.md).
 
-One file, three jobs:
+One file, four jobs:
   placeholders  generate 12 consistent placeholder faces (so nothing is blank pre-art)
+  slice         cut a 2x2 expression sheet (nano banana output) into the 4 named files
   check         validate a folder: all 12 present, identical size, 2:3 aspect, RGBA
   normalize     force all 12 to one identical 2:3 size (letterboxed, no distortion)
+
+2x2 sheet layout (matches docs/SPRITES.md prompts): TL=neutral TR=blink BL=smile BR=cry.
 
 The naming convention lives HERE and is the single source docs/SPRITES.md points at:
   <critter>_<expression>.png  →  fish/bird/dino × neutral/blink/smile/cry  = 12 files.
@@ -94,6 +97,42 @@ def generate_placeholders(out_dir: Path, size: tuple[int, int] = DEFAULT_SIZE) -
     return written
 
 
+# ── slice (2x2 sheet → 4 named files) ────────────────────────────────────────
+# Quadrant → expression, matching the generation prompts in docs/SPRITES.md.
+SHEET_LAYOUT = ["neutral", "blink", "smile", "cry"]  # TL, TR, BL, BR
+
+
+def slice_sheet(
+    sheet: Path,
+    critter: str,
+    out_dir: Path,
+    size: tuple[int, int] = DEFAULT_SIZE,
+    inset: int = 0,
+) -> list[Path]:
+    if critter not in CRITTERS:
+        raise SystemExit(f"unknown critter {critter!r}; expected one of {CRITTERS}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written = []
+    with Image.open(sheet) as im:
+        im = im.convert("RGBA")
+        w, h = im.size
+        mx, my = w // 2, h // 2
+        # inset trims a few px off each interior cut edge — a guard for sheets with a faint
+        # seam/gutter between cells (AI grids sometimes have one). 0 = exact midline cut.
+        boxes = {
+            "neutral": (0, 0, mx - inset, my - inset),
+            "blink": (mx + inset, 0, w, my - inset),
+            "smile": (0, my + inset, mx - inset, h),
+            "cry": (mx + inset, my + inset, w, h),
+        }
+        for expr in SHEET_LAYOUT:
+            tile = im.crop(boxes[expr]).resize(size, Image.LANCZOS)
+            dst = out_dir / f"{critter}_{expr}.png"
+            tile.save(dst)
+            written.append(dst)
+    return written
+
+
 # ── check ────────────────────────────────────────────────────────────────────
 def check(folder: Path) -> tuple[bool, list[str]]:
     problems: list[str] = []
@@ -155,6 +194,13 @@ def main(argv: list[str]) -> int:
     p.add_argument("--out", type=Path, default=Path("art"))
     p.add_argument("--size", type=_parse_size, default=DEFAULT_SIZE)
 
+    p = sub.add_parser("slice", help="cut a 2x2 expression sheet into the 4 named files")
+    p.add_argument("sheet", type=Path)
+    p.add_argument("critter", choices=CRITTERS)
+    p.add_argument("--out", type=Path, default=Path("art"))
+    p.add_argument("--size", type=_parse_size, default=DEFAULT_SIZE)
+    p.add_argument("--inset", type=int, default=0, help="trim N px off each interior cut (seam guard)")
+
     p = sub.add_parser("check", help="validate a folder of 12 faces; exit 1 on any problem")
     p.add_argument("dir", type=Path)
 
@@ -173,6 +219,11 @@ def main(argv: list[str]) -> int:
         ok, problems = check(args.out)
         print("check: OK" if ok else "check FAILED:\n  " + "\n  ".join(problems))
         return 0 if ok else 1
+
+    if args.cmd == "slice":
+        written = slice_sheet(args.sheet, args.critter, args.out, args.size, args.inset)
+        print(f"sliced {args.sheet} → {args.out}/: " + ", ".join(p.name for p in written))
+        return 0
 
     if args.cmd == "check":
         ok, problems = check(args.dir)

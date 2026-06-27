@@ -98,7 +98,47 @@ assigned twice.
 
 ```
 python tools/sprites.py placeholders [--out art] [--size 512x768]   # regen placeholders
+python tools/sprites.py slice <sheet.png> <fish|bird|dino> [--out art] [--inset N]
 python tools/sprites.py check <dir>                                  # validate; exit 1 on problems
 python tools/sprites.py normalize <dir> [--out art_normalized] [--size 512x768]
 python tools/sprites.py selftest                                     # self-check the tool
 ```
+
+## 11. Generation prompts (Gemini "nano banana")
+
+One prompt **per character**, each producing a single **2×2 grid** (4 expressions). Four 2:3
+tiles in a 2×2 grid is itself 2:3, so the sheet slices into four clean cards. Layout (fixed):
+**TL = neutral, TR = blink, BL = smile, BR = cry** — `tools/sprites.py slice` assumes exactly this.
+
+**Workflow:** generate a character → save the sheet (e.g. `art/_sheets/fish.png`) →
+`python tools/sprites.py slice art/_sheets/fish.png fish` → repeat for bird/dino →
+`python tools/sprites.py check art`. Add `--inset 4` if a faint seam shows at the cut lines.
+
+**Shared style DNA (keeps all 3 matching):** flat modern vector mascot · thick clean outlines ·
+soft cel shading, one highlight · big expressive eyes · bold simple shapes, readable across a
+room · dead-front, centered, symmetrical · solid flat pastel background, no scenery · 2:3 portrait.
+
+**Cross-character consistency:** generate Fish first, then attach it as a reference image for
+Bird and Dino with *"match this image's exact art style, line weight, shading, eye style and
+proportions — same world, different animal."*
+
+> **Fish (WATER)** — A cute kawaii mascot **fish** card face. Flat modern vector illustration:
+> thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+> texture. A round friendly aqua-teal fish, big round sparkly eyes, small rounded fins, tiny
+> mouth — chibi, front-facing, centered, symmetrical. Solid flat **soft aqua** background, no
+> scenery. Compose **four portraits of this exact same fish in a clean 2×2 grid**, equal cells,
+> drawn at the **identical size, position, pose, lighting and framing in every cell** — only the
+> expression changes. TL neutral (calm, eyes open); TR blink (identical but eyes gently closed);
+> BL smile (big joyful open smile, bright eyes — a winner); BR cry (teary downturned eyes with
+> tear drops, wobbly frown — a loser, still cute). Aspect ratio **2:3 portrait**, high-res,
+> seamless same-color background across all cells. **No text, labels, borders, watermark, extra
+> characters, or background objects.**
+
+> **Bird (SKY)** — …same paragraph, swapping the subject for a round fluffy **warm-yellow/coral
+> baby bird** with tiny stubby wings and a small orange beak, on a **pale sky-blue** background.
+
+> **Dino (EARTH)** — …same paragraph, swapping the subject for a chunky **leaf-green baby
+> dinosaur** with a rounded belly and small soft back spikes, on a **soft sage-green** background.
+
+(Full Bird/Dino prompts are identical in structure to Fish — only the subject sentence and
+background colour change.)
