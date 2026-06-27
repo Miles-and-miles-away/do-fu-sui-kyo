@@ -38,7 +38,7 @@ var _locked := false  # once the card emotes (smile/cry), stop blinking (R7)
 
 func _ready() -> void:
 	_ensure_unique_material()  # F2 — must be per-instance or every card's face changes together
-	_set(tex_neutral)
+	_apply_texture(tex_neutral)
 	_blink_timer = Timer.new()
 	_blink_timer.one_shot = true
 	add_child(_blink_timer)
@@ -63,7 +63,7 @@ func _ensure_unique_material() -> void:
 	_mesh.set_surface_override_material(0, _mat)
 
 
-func _set(t: Texture2D) -> void:
+func _apply_texture(t: Texture2D) -> void:
 	if _mat and t:
 		_mat.albedo_texture = t
 
@@ -75,21 +75,21 @@ func _schedule_blink() -> void:
 func _do_blink() -> void:
 	if _locked:
 		return
-	_set(tex_blink)
+	_apply_texture(tex_blink)
 	# SceneTreeTimer await — guard against the node being freed mid-await (edge E13).
 	await get_tree().create_timer(blink_hold).timeout
 	if not is_instance_valid(self) or _locked:
 		return
-	_set(tex_neutral)
+	_apply_texture(tex_neutral)
 	_schedule_blink()
 
 
 # Called by PlayZone on resolution (R7). Locking stops the blink loop.
 func show_smile() -> void:
 	_locked = true
-	_set(tex_smile)
+	_apply_texture(tex_smile)
 
 
 func show_cry() -> void:
 	_locked = true
-	_set(tex_cry)
+	_apply_texture(tex_cry)
