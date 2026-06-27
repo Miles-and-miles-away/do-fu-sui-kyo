@@ -31,6 +31,7 @@ func _initialize() -> void:
 	_t7_deck_exhaustion(gs)
 	_t8_robot_legality(gs)
 	_t9_game_over_boundary(gs)
+	_t10_difficulty(gs)
 	_t1_integration(gs)  # full game loop last (drives to game over)
 
 	gs.free()
@@ -236,6 +237,27 @@ func _t9_game_over_boundary(gs) -> void:
 	gs.player_score = 0
 	gs.robot_score = 3
 	_check(gs.game_over(), "T9: 0–3 should be game over")
+
+
+# ── T10 — difficulty: HARD plays to win, EASY plays to lose (regardless of the roll) ─────
+# Deterministic trick: stock the robot's hand with ONLY the card for the targeted outcome.
+# Whichever way the win-rate coin lands, the wanted card (or the random fallback) is the same
+# single card, so the round outcome is fixed — no flaky probability in the assert.
+func _t10_difficulty(gs) -> void:
+	# HARD vs WATER: EARTH beats WATER → robot should win. Hand holds only EARTH.
+	gs.new_game()
+	gs.difficulty = gs.Difficulty.HARD
+	_set_hand(gs.robot_hand, [gs.Type.EARTH])
+	var r = gs.play_round(gs.Type.WATER)
+	_check(r.outcome == -1, "T10: HARD should beat the player, got outcome %d" % r.outcome)
+
+	# EASY vs WATER: WATER beats SKY → robot should lose. Hand holds only SKY.
+	gs.new_game()
+	gs.difficulty = gs.Difficulty.EASY
+	_set_hand(gs.robot_hand, [gs.Type.SKY])
+	r = gs.play_round(gs.Type.WATER)
+	_check(r.outcome == 1, "T10: EASY should lose to the player, got outcome %d" % r.outcome)
+	gs.difficulty = gs.Difficulty.MEDIUM  # restore default for later tests
 
 
 # ── T1 — full-game integration: step≤1, refill, ends exactly at 3 (R9,R11,R17,R19,R23) ─

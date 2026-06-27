@@ -24,6 +24,13 @@ extends Area3D
 @export var card_spread: float = 0.1
 
 var _round_active := true
+# Last score shown + whether the game has ended (0 none / 1 player won / 2 player lost), so a
+# mid-game language toggle can re-render the current panel in the new language (Lang.changed).
+var _score := Vector2i.ZERO
+var _ended := 0
+# Bumped on every restart so an in-flight round's awaits can bail instead of dealing over a
+# fresh hand (a player can hit Restart mid-round). ponytail: a counter is the cheap guard.
+var _gen := 0
 # Non-positional player: the win/lose stinger is UI feedback, not a world sound (both ears).
 var _sfx := AudioStreamPlayer.new()
 
@@ -31,28 +38,42 @@ var _sfx := AudioStreamPlayer.new()
 @onready var _score_panel: Label3D = $"../ScorePanel"
 @onready var _robot: Node = $"../RobotPlayer"  # RobotPlayer.gd, presents the robot's card (R15)
 @onready var _felt_mat: ShaderMaterial = $"../FeltCircle".mesh.material  # gilds on a good landing
+@onready var _xr_origin: XROrigin3D = $"../../XRRig/XROrigin3D"
+
+# The rig's authored start offset (eyeline of the robot, sized to the table). center_on_hmd would
+# clobber it from the live HMD pose and drop the player to the floor, so reset just restores this.
+@onready var _start_xform: Transform3D = _xr_origin.transform
 
 
 func _ready() -> void:
 	add_child(_sfx)
-	body_entered.connect(_on_body_entered)
+	# Resume the background music once a jingle finishes (it's ducked while the sting plays).
+	_sfx.finished.connect(Music.resume)
+	# GameRoot drives resolution: it calls resolve() once a thrown card SETTLES ≥50% inside the
+	# felt (centre within FELT_RADIUS). The Area3D's own body_entered isn't used — it would fire
+	# on any edge-clip while the card's still airborne, before we know where it actually lands.
+	# Restart button (Hud) reaches us by group; language toggle re-renders the live panel.
+	add_to_group("game_control")
+	Lang.changed.connect(_on_lang_changed)
 	_update_score(0, 0)
 
 
-func _on_body_entered(body: Node) -> void:
-	# Single resolution per round: ignore further entries until the next round (R3, R22, E10).
+# Called by GameRoot when a thrown player card comes to rest ≥50% inside the felt circle.
+func resolve(card: Node) -> void:
+	# Single resolution per round: ignore further landings until the next round (R3, R22, E10).
 	if not _round_active:
 		return
 	# Only react to cards (they expose show_smile()); ignore stray bodies.
-	if not body.has_method("show_smile"):
+	if not card.has_method("show_smile"):
 		return
 	_round_active = false
+	var gen := _gen  # if Restart bumps this mid-round, the awaits below bail out
 	_set_target_lit(true)  # card's on the felt — gild the rim to confirm a good landing
 
 	# The brain does ALL rules; we only translate its result to visuals (R23/NFR8).
-	var result: Dictionary = GameState.play_round(body.card_type)
+	var result: Dictionary = GameState.play_round(card.card_type)
 
-	var player_card := body
+	var player_card := card
 	# The felt is a pure trigger: the player's thrown card is LEFT to fall and rest wherever it
 	# lands inside the circle (GameRoot's monitor snaps it flat on contact) — no teleport to a
 	# fixed spot, so the throw keeps its realism. Entering the felt is what makes the robot throw.
@@ -63,7 +84,7 @@ func _on_body_entered(body: Node) -> void:
 	# Wait for the robot to finish laying its card, THEN snap it flat & flip the verdict (R21).
 	# settle_time must cover the robot's reach+wind+throw flight (RobotPlayer reach/wind/flight times).
 	await get_tree().create_timer(settle_time).timeout
-	if not is_instance_valid(self) or not is_instance_valid(player_card):
+	if not is_instance_valid(self) or not is_instance_valid(player_card) or gen != _gen:
 		return
 	if is_instance_valid(robot_card):
 		_place_flat(robot_card, robot_pos)
@@ -95,7 +116,7 @@ func _on_body_entered(body: Node) -> void:
 	else:
 		_play_stinger(result.outcome)  # win/lose/draw each round; game-over plays its own below
 		await get_tree().create_timer(reveal_pause).timeout
-		if not is_instance_valid(self):
+		if not is_instance_valid(self) or gen != _gen:
 			return
 		_begin_next_round()
 
@@ -119,6 +140,7 @@ func _play_stinger(outcome: int) -> void:
 	var sound := "win" if outcome > 0 else "lose" if outcome < 0 else "draw"
 	var stream := load("res://art/%s.wav" % sound)
 	if stream:
+		Music.duck()  # pause the soundtrack so the jingle is heard clean; resumed on _sfx.finished
 		_sfx.stream = stream
 		_sfx.play()
 
@@ -129,10 +151,27 @@ func _set_target_lit(on: bool) -> void:
 
 
 func _update_score(p: int, r: int) -> void:
+	_score = Vector2i(p, r)
+	_ended = 0
 	if _score_panel:
-		# Bilingual scoreline: English over Japanese (おぬし = playful archaic "you") (R18).
-		_score_panel.text = "You %d : %d Robot\nおぬし %d : %d ロボット" % [p, r, p, r]
+		# Scoreline in the chosen language (おぬし = playful archaic "you"). (R18)
+		_score_panel.text = Lang.t("You %d : %d Robot" % [p, r], "おぬし %d : %d ロボット" % [p, r])
 		_score_panel.modulate = Color.WHITE  # clear any held end-game tint on restart
+
+
+# Re-render the live panel when the language flips (Hud's 日本/EN toggle).
+func _on_lang_changed() -> void:
+	if _ended != 0:
+		_render_banner()
+	else:
+		_update_score(_score.x, _score.y)
+
+
+func _render_banner() -> void:
+	if _score_panel:
+		_score_panel.text = (
+			Lang.t("YOU WIN", "お前の勝ち") if _ended == 1 else Lang.t("YOU LOSE", "お前の負け")
+		)
 
 
 # Pop the score, flash it a colour, and throw a little sparkle when it changes.
@@ -204,21 +243,31 @@ func _begin_next_round() -> void:
 
 
 func _show_end_state(player_won: bool) -> void:
-	if _score_panel:
-		# End banner, English over Japanese (R19). お前 = casual "you".
-		var win_text := "YOU WIN\nお前の勝ち"
-		var lose_text := "YOU LOSE\nお前の負け"
-		_score_panel.text = win_text if player_won else lose_text
-		_flourish(Color(0.4, 1.0, 0.5) if player_won else Color(1.0, 0.4, 0.4), 1.8, 60, true)
+	# End banner (R19). お前 = casual "you". _ended drives a re-render on a language flip.
+	_ended = 1 if player_won else 2
+	_render_banner()
+	_flourish(Color(0.4, 1.0, 0.5) if player_won else Color(1.0, 0.4, 0.4), 1.8, 60, true)
 	_play_stinger(1 if player_won else -1)  # game over is win or lose, never a draw
-	# Restart (R20): after a pause, start a fresh game and re-deal so the demo loops cleanly.
+	# Auto-restart (R20): after a pause, loop the demo cleanly — no recenter (don't yank the view).
+	var gen := _gen
 	await get_tree().create_timer(restart_delay).timeout
-	if not is_instance_valid(self):  # zone may be gone if scene reloaded (E13-style guard)
+	if not is_instance_valid(self) or gen != _gen:  # zone gone, or a manual Restart beat us to it
 		return
+	restart(false)
+
+
+# Fresh match: reset logic + scene, and (for the Hud's Restart button) recenter the player.
+# Reused by the game-over auto-restart (recenter=false). Bumping _gen makes any in-flight
+# round's awaits bail so we never deal over the hand this just dealt.
+func restart(recenter: bool = true) -> void:
+	_gen += 1
+	_round_active = false
 	GameState.new_game()
 	if _game_root and _game_root.has_method("deal_player_hand"):
 		_game_root.deal_player_hand()
-	_robot.reset_face()  # fresh game → neutral face
+	_robot.reset_face()
 	_set_target_lit(false)
 	_update_score(0, 0)
+	if recenter:
+		_xr_origin.transform = _start_xform
 	_round_active = true

@@ -37,6 +37,10 @@ beats water). First to 3 wins. The charm + the physical throw is the whole pitch
 - **Robot**: picks a random-legal card from *its own* hand and throws it.
 - RPS resolution → winner smiles, loser cries, draw = both cry.
 - **First-to-3** score, shown on a simple panel; round reset; game-over state.
+- A fixed **four-button control panel** (Restart / Rules / Track / Language) at the player's right, at
+  eyeline and within reach, retro-styled, pressed by fingertip touch or laser; the **Language** toggle
+  re-languages all in-game text (EN ⇄ JP), and **Track** cycles the looping background music. (FSD §3.9,
+  R32–R37.)
 
 ### OUT of scope — do NOT build, even if tempting
 - ❌ Multiplayer / networking. Single-player vs robot only.
@@ -44,10 +48,12 @@ beats water). First to 3 wins. The charm + the physical throw is the whole pitch
 - ❌ Mixed-reality passthrough / surface anchoring. Immersive VR is simpler — use it.
 - ❌ Separate decks per player. **One shared deck.** (Decided.)
 - ❌ Smart AI that reads the player's hand. **Random-legal only.** (Heuristic = stretch, §9.)
-- ❌ Menus, settings, best-of-N config, tutorials, onboarding.
+- ❌ Settings menus, best-of-N config, multi-screen tutorials / onboarding. *(The fixed
+  Restart/Rules/Language strip + one-screen Rules card is **in** scope — it's not a menu tree.)*
 - ❌ More than 3 character types or any deckbuilding meta.
 - ❌ Miss handling — **cards always fly true and land in-zone** by design. (Decided.)
-- ❌ Sound design beyond (optional) one win/lose sting. (Stretch, §9.)
+- ❌ Sound design beyond the win/lose/draw round stingers (built, §9) and the selectable looping
+  background music (Track button, FSD R36–R37) — no ambience or spatialized/positional audio.
 
 > **Rule of thumb:** complexity is allowed to live in exactly one place — the hand/deck
 > logic in `GameState.gd`. Everywhere else, take the simplest path.
@@ -112,6 +118,8 @@ component so we don't hand-roll grab physics. `IoTone/BowleraramaXR-Godot` is **
 ```
 Main (main.tscn — our scene; XR Tools rig at the root)
 ├── XROrigin3D / XRCamera3D / controllers      # XR Tools standard rig — keep conventional (R24)
+│   └── Left/RightHand → FunctionPickup         # pinch-grab cards (existing) +
+│                      → Poke                     # NEW — fingertip touch to press the panel (R32)
 ├── Table (mesh)                                # our mesh (a simple box/plane is fine)
 ├── GameRoot (Node3D) + GameRoot.gd             # NEW — owns spawning/clearing the player's hand
 │   │                                           #   cards from GameState.player_hand (logic→scene glue)
@@ -122,12 +130,28 @@ Main (main.tscn — our scene; XR Tools rig at the root)
 │   ├── PlayZone (Area3D)                        # NEW — detects landed cards
 │   │   └── CollisionShape3D (box, ~table-sized, low)
 │   ├── RobotThrowPoint (Node3D)                 # spawn/aim origin for robot's toss
-│   └── ScorePanel (Label3D or XR Tools 2D UI)   # "You 1 — 2 Robot"
+│   └── ScorePanel (Label3D)                      # scoreline / win-lose banner; language per Lang (R18/R35)
+├── Hud3D (Viewport2Din3D → game/Hud.tscn)        # NEW — right-side, eyeline, in-reach panel (R32–R35):
+│                                                 #   Restart / Rules / Language buttons + Rules overlay,
+│                                                 #   clicked by the FunctionPointer laser
 ├── Environment (Node3D)                          # ✂️ CUT-FIRST ambiance; no game logic (§4.5)
 │   └── RoomShell (MeshInstance3D)                # inverted cylinder; STATIC dark shell = default,
 │                                                 #   animated Fire/Waves/Wind = STRETCH (R30/R31)
-└── (GameState.gd is an AUTOLOAD singleton, not in the tree — Project Settings → Autoload)
+└── AUTOLOADS (not in the tree — Project Settings → Autoload)
+    ├── GameState.gd                              # the logic brain (§5)
+    ├── Lang.gd                                   # NEW — i18n: jp flag + changed signal + t(en,ja) (R35)
+    └── Music.gd                                  # NEW — looping soundtrack + track cycle + jingle duck (R36/R37)
 ```
+
+> **Control panel — reuse, don't build (§3 ethos).** The buttons are a normal 2D Godot UI built in
+> code (`game/Hud.gd` — `Button`s + `StyleBox` retro theme + a side Rules card), shown in 3D by the
+> addon's **`Viewport2Din3D`**. The panel sits at the player's right within arm's reach, so the
+> primary input is the addon's **`Poke`** (fingertip touch) on each hand; the **`function_pointer`**
+> laser also works. Buttons are large and vertically spread; the Rules card opens beside them (never
+> covering them) so a second Rules tap closes it. The Restart button reaches `PlayZone.restart()` by
+> group call (`"game_control"`); the Language button flips the `Lang` autoload, whose `changed` signal
+> every text node (the HUD + `ScorePanel`) re-renders from. **No menu framework, no locale files** —
+> two strings per label, two languages, one flag.
 
 `Card.tscn` (instanced, one per physical card):
 ```
@@ -390,6 +414,7 @@ func _on_body_entered(body: Node) -> void:
 		0:  player_card.show_cry(); robot_card.show_cry()   # draw = loss for both
 
 	_update_score(result.player_score, result.robot_score)
+	_play_stinger(result.outcome)   # win/lose/draw audio; end state plays its own win/lose (§9)
 
 	if result.game_over:
 		_show_end_state(result.player_score >= 3)
@@ -407,9 +432,10 @@ func _begin_next_round() -> void:
 	_round_active = true
 
 func _show_end_state(player_won: bool) -> void:
-	score_panel.text = "YOU WIN!" if player_won else "ROBOT WINS"
-	# Restart (R20) DEFAULT: spawn one grabbable "play again" Card.tscn; throwing it into the zone
-	# calls GameState.new_game() and GameRoot respawns hands. (Reveal-timer auto-restart = fallback.)
+	score_panel.text = Lang.t("YOU WIN", "お前の勝ち") if player_won else Lang.t("YOU LOSE", "お前の負け")
+	# Restart (R20/R33): auto-restart after a pause → restart(false); the panel's Restart button
+	# calls restart(true) (also recenters the player). One restart() path, reused. A _gen counter
+	# lets a mid-round restart cancel this round's in-flight awaits.
 ```
 
 ---
@@ -446,7 +472,9 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
 
 ## 9. Stretch goals (only if Day 2 PM has slack — never before)
 
-- **Win/lose sound sting** (one-shot `AudioStreamPlayer`).
+- **Round audio — BUILT (R25).** Win/lose/draw stingers through one `AudioStreamPlayer`; each
+  round plays its outcome, game-over plays win/lose. Synthesized by `tools/gen_sfx.py` (stdlib,
+  no deps) → `art/{win,lose,draw}.wav`; re-run after tweaking, then re-import in Godot.
 - **Card glow / controller haptic** on a win (juice; XR Tools exposes haptics).
 - **Robot heuristic:** if it holds the counter to the player's most-played type, prefer it.
   One-line bias over random; *apparent* intelligence, cheap. Stays "picks from own hand."
@@ -508,6 +536,8 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
 - [ ] Card characters blink at rest.
 - [ ] Hand of 3 consumes + refills from the shared deck; hands drift over rounds.
 - [ ] Score panel updates; first-to-3 ends the game; restart possible.
+- [ ] Control panel works: Restart resets + recenters, Rules card shows, Language flips all text (EN ⇄ JP), Track cycles music.
+- [ ] Background music loops from launch (retro-gaming) and ducks for the win/lose/draw jingle.
 - [ ] A clean 90-second demo run rehearsed end-to-end.
 
 ---
@@ -532,8 +562,21 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
   `card_type`/`show_smile()` off the entering body (§4, §6).
 - **DECIDED (glue):** a `GameRoot.gd` presenter spawns/clears the player's hand cards from
   `GameState.player_hand` — the only logic→scene bridge (§4, §7, §10 Stage 2).
-- **DECIDED:** Restart (R20) = a grabbable "play again" `Card` thrown into `PlayZone` →
-  `GameState.new_game()`; `GameRoot` respawns hands (timer auto-restart = fallback).
+- **DECIDED:** Restart (R20/R33) = the control panel's **Restart button** → `PlayZone.restart()`
+  (`GameState.new_game()`, `GameRoot` respawns hands, robot face reset, button-only player recenter),
+  plus an auto-restart after the end state. A `_gen` counter cancels a mid-round restart's in-flight
+  awaits. **Supersedes** the earlier "grabbable play-again card" — a button is one place and also
+  covers on-demand mid-game restarts.
+- **DECIDED:** In-game **control panel + language toggle** (R32–R35) = XR Tools `Viewport2Din3D`
+  rendering a code-built retro 2D UI (`game/Hud.gd`/`Hud.tscn`), pressed by an XR Tools `Poke`
+  (fingertip touch) on each hand or the `function_pointer` laser. i18n is one autoload, `game/Lang.gd`
+  (`jp` flag + `changed` signal + `t(en, ja)`); every label is a `Lang.t(...)` call so the toggle
+  re-languages the whole game. No menu framework, no locale files. *(The panel was moved to the
+  player's right at eyeline/in-reach so touch works; an earlier draft put it on the far wall = laser-only.)*
+- **DECIDED:** **Background music** (R36–R37) = one autoload `game/Music.gd` — a looping
+  `AudioStreamPlayer` over `music/`, opening on retro-gaming; the music control is a split button
+  (play/pause + skip; `next_track()` returns the name for a ~2 s HUD popup); `duck()`/`resume()` pause it
+  around a jingle (PlayZone, on stinger play / `_sfx.finished`). Track list is the whole config.
 - **VERIFY IN EDITOR:** `XRToolsPickable` API in the installed XR Tools version (props/signals);
   OpenXR + Meta vendor bring-up renders in-headset; flat-card collider behavior + CCD (§3, §7).
 - **See `docs/ASSETS.md`** — full node/scene/asset manifest, collision layers, import settings.

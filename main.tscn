@@ -9,6 +9,8 @@
 [ext_resource type="Shader" path="res://game/wood.gdshader" id="28_wood"]
 [ext_resource type="Shader" path="res://game/felt.gdshader" id="29_felt"]
 [ext_resource type="FontFile" path="res://art/fonts/DotGothic16-Regular.ttf" id="30_font"]
+[ext_resource type="PackedScene" uid="uid://clujaf3u776a3" path="res://addons/godot-xr-tools/objects/viewport_2d_in_3d.tscn" id="31_viewport"]
+[ext_resource type="PackedScene" uid="uid://b1hudpanel0001" path="res://game/Hud.tscn" id="32_hud"]
 [ext_resource type="Texture2D" uid="uid://vue50gm4b6lx" path="res://art/fish_neutral.png" id="10_fn"]
 [ext_resource type="Texture2D" uid="uid://bpspsbwi68k8s" path="res://art/fish_blink.png" id="11_fb"]
 [ext_resource type="Texture2D" uid="uid://c2bgkvi31un4r" path="res://art/fish_determined.png" id="12_fd"]
@@ -175,3 +177,20 @@ font_size = 64
 [node name="FeltCircle" type="MeshInstance3D" parent="GameRoot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.702, -0.6)
 mesh = SubResource("CylinderMesh_felt")
+
+; Retro control panel: a 2D UI (Hud.tscn) on a 3D quad placed at the player's RIGHT, at
+; eyeline (~1.45 m) and within arm's reach (~0.5 m) — turn right, then poke a button (or use
+; the laser). The X basis is NEGATED (left-handed basis = horizontal mirror): the Viewport2Din3D
+; rendered its text mirrored whichever way we faced it, so we flip the content here instead of
+; rotating. Input still maps correctly — the addon's body uses the collider's affine_inverse.
+; ponytail: position eyeballed off the rig math — nudge in-headset to taste.
+[node name="Hud3D" parent="." instance=ExtResource("31_viewport")]
+; Yawed 15°, pivoting about the left (rules) edge so it stays put and the right (button) edge
+; swings backward/away — turns the panel flatter to the user's gaze. ponytail: tune the angle.
+transform = Transform3D(0.4226, 0, 0.9063, 0, 1, 0, 0.9063, 0, -0.4226, 0.7383, 1.45, 0.1127)
+screen_size = Vector2(0.95, 0.52)
+; Unshaded so the panel shows its texture at full brightness — shaded, it went black when angled
+; away from the scene light in the dim room.
+unshaded = true
+scene = ExtResource("32_hud")
+viewport_size = Vector2(840, 460)

@@ -16,9 +16,8 @@ const CARD_GROUP := &"card"
 
 # Card-landing behaviour (calibrate against the table in main.tscn).
 const TABLE_REST_Y := 0.704  # height a card lies flat at — matches PlayZone.table_surface_y
-const TABLE_CENTRE := Vector2(0.0, -0.6)  # table-disc centre (x,z) in world space
-const TABLE_RADIUS := 0.55  # table-disc radius — inside = rests on top, outside = fell off
-const FLOOR_Y := 0.5  # below this (and off the disc) a card has fallen → fly it home
+const FELT_CENTRE := Vector2(0.0, -0.6)  # felt circle centre (x,z) — matches FeltCircle/PlayZone
+const FELT_RADIUS := 0.25  # felt circle radius — ONLY inside here rests; anywhere else flies home
 
 # Card.tscn + the 18 frames grouped per type (R8). Assign ONCE in the inspector here.
 # Canonical order (matches docs/SPRITES.md §8 + tools/sprites.py EXPRESSIONS):
@@ -29,6 +28,8 @@ const FLOOR_Y := 0.5  # below this (and off the disc) a card has fallen → fly 
 @export var frames_earth: Array[Texture2D]  # Dino (EARTH)
 
 var _slots: Array = []
+
+@onready var _play_zone: Node = $PlayZone  # resolves the round once a card rests inside the felt
 
 
 func _ready() -> void:
@@ -54,13 +55,14 @@ func _physics_process(_delta: float) -> void:
 		if c.has_method("is_picked_up") and c.is_picked_up():  # in the player's hand
 			continue
 		var pos: Vector3 = c.global_position
-		var over_table := Vector2(pos.x, pos.z).distance_to(TABLE_CENTRE) < TABLE_RADIUS
-		# Over the disc and at/below the surface → snap flat on top the instant it touches,
-		# whatever its speed, so a fast card can never sink through (the edge cases). Off the
-		# disc and below floor level → it fell off → fly it home.
-		if over_table and pos.y < TABLE_REST_Y + 0.02:
+		if pos.y >= TABLE_REST_Y + 0.02:  # still in the air → leave the throw alone
+			continue
+		# It's settled at/below table height. Inside the felt circle → snap flat on top the
+		# instant it touches (a fast card can never sink through). Anywhere else — table top
+		# outside the circle, or fallen to the floor — it missed → fly it home (R-miss recovery).
+		if Vector2(pos.x, pos.z).distance_to(FELT_CENTRE) < FELT_RADIUS:
 			_rest_on_table(c)
-		elif not over_table and pos.y < FLOOR_Y:
+		else:
 			_return_to_slot(c)
 
 
@@ -74,6 +76,9 @@ func _rest_on_table(card: RigidBody3D) -> void:
 	card.global_transform = Transform3D(
 		Basis(Vector3.RIGHT, -PI / 2), Vector3(p.x, TABLE_REST_Y, p.z)
 	)
+	# A good landing: hand off to PlayZone to gild the ring, throw the robot's card, and score.
+	# Its _round_active latch ignores re-calls, so the frozen card resting here only fires once.
+	_play_zone.resolve(card)
 
 
 # A card that fell off the table flies back up to its hovering slot (R-miss recovery).

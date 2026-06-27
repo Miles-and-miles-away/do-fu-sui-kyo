@@ -3,14 +3,20 @@
 ; per controller (the grabber, R1/R2). NO game logic lives here (R24). Instanced by BOTH
 ; bringup.tscn (T10) and main.tscn so the rig is authored once.
 ; ⚠️ Open in Godot 4.7 once to let it assign UIDs + confirm the addon scenes resolve.
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" uid="uid://clc5dre31iskm" path="res://addons/godot-xr-tools/xr/start_xr.tscn" id="1_startxr"]
+[ext_resource type="Script" path="res://game/PokeGesture.gd" id="7_pokegesture"]
 [ext_resource type="PackedScene" uid="uid://b4ysuy43poobf" path="res://addons/godot-xr-tools/functions/function_pickup.tscn" id="2_pickup"]
+[ext_resource type="PackedScene" uid="uid://bjcxf427un2wp" path="res://addons/godot-xr-tools/player/poke/poke.tscn" id="6_poke"]
 [ext_resource type="PackedScene" path="res://addons/godot-xr-tools/hands/scenes/lowpoly/left_hand_low.tscn" id="3_lhand"]
 [ext_resource type="PackedScene" path="res://addons/godot-xr-tools/hands/scenes/lowpoly/right_hand_low.tscn" id="4_rhand"]
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hand"]
+albedo_color = Color(0.78, 0.7, 0.89, 1)
+
 [node name="XRRig" type="Node3D"]
+script = ExtResource("7_pokegesture")
 
 [node name="StartXR" parent="." instance=ExtResource("1_startxr")]
 
@@ -30,7 +36,19 @@ tracker = &"left_hand"
 pickup_axis_action = "trigger"
 impulse_factor = 1.6
 
+; Fingertip poke so the player can physically TOUCH the control panel. Offset forward (-Z) to
+; roughly the index tip; mask = bit 23 (ui-objects) only so it pokes the panel but never nudges
+; cards. ponytail: offset/radius eyeballed — tune in-headset until a natural reach presses a button.
+[node name="Poke" parent="XROrigin3D/LeftHand" instance=ExtResource("6_poke")]
+; Hand is held thumb-up (chop), so fingers stack vertically — shift UP in Y to reach the index tip.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.09)
+radius = 0.012
+push_bodies = false
+mask = 4194304
+color = Color(0, 0, 0, 0)
+
 [node name="LeftHandModel" parent="XROrigin3D/LeftHand" instance=ExtResource("3_lhand")]
+hand_material_override = SubResource("StandardMaterial3D_hand")
 
 [node name="RightHand" type="XRController3D" parent="XROrigin3D"]
 tracker = &"right_hand"
@@ -39,4 +57,13 @@ tracker = &"right_hand"
 pickup_axis_action = "trigger"
 impulse_factor = 1.6
 
+[node name="Poke" parent="XROrigin3D/RightHand" instance=ExtResource("6_poke")]
+; Hand is held thumb-up (chop), so fingers stack vertically — shift UP in Y to reach the index tip.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, -0.09)
+radius = 0.012
+push_bodies = false
+mask = 4194304
+color = Color(0, 0, 0, 0)
+
 [node name="RightHandModel" parent="XROrigin3D/RightHand" instance=ExtResource("4_rhand")]
+hand_material_override = SubResource("StandardMaterial3D_hand")

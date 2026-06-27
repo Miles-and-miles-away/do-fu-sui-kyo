@@ -19,6 +19,8 @@ config/icon="uid://c5vgidhr72osp"
 [autoload]
 
 GameState="*res://GameState.gd"
+Lang="*res://game/Lang.gd"
+Music="*res://game/Music.gd"
 XRToolsUserSettings="*uid://bqgb8i74tm0t"
 XRToolsRumbleManager="*uid://by853dk86g1qw"
 

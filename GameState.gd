@@ -18,6 +18,10 @@ extends Node
 # Three card types. WATER=Fish, SKY=Bird, EARTH=Dino. (R4)
 enum Type { WATER, SKY, EARTH }
 
+# Robot skill. EASY/HARD peek at the player's thrown card; MEDIUM stays blind (the original
+# random pick). The numbers (DIFFICULTY_WIN_RATE) are the robot's target win rate.
+enum Difficulty { EASY, MEDIUM, HARD }
+
 # Cyclic "beats" table (R-P-S). Each type beats exactly one and loses to exactly one. (§4)
 #   WATER → SKY → EARTH → WATER
 # const so it is built ONCE, not allocated on every resolve() call (NFR6, no hot-path alloc).
@@ -25,6 +29,11 @@ const BEATS := {
 	Type.WATER: Type.SKY,  # Fish beats Bird
 	Type.SKY: Type.EARTH,  # Bird beats Dino
 	Type.EARTH: Type.WATER,  # Dino beats Fish
+}
+
+const DIFFICULTY_WIN_RATE := {
+	Difficulty.EASY: 0.3,
+	Difficulty.HARD: 0.7,
 }
 
 # Display + sprite-lookup key (R8). Kept as Fish/Bird/Dino per the design.
@@ -39,6 +48,7 @@ const TYPE_NAMES := {
 @export var copies_per_type: int = 6
 
 # --- State (the authoritative shapes, FSD §5) ---
+var difficulty: int = Difficulty.MEDIUM  # robot skill, set from the HUD
 var deck: Array[Type] = []
 var player_hand: Array[Type] = []
 var robot_hand: Array[Type] = []
@@ -96,6 +106,21 @@ func robot_pick() -> Type:
 	return robot_hand.pop_at(i)
 
 
+# Difficulty-aware robot play. MEDIUM is the blind random pick; EASY/HARD roll their target
+# win rate and then deliberately pick a card that beats (or, on a loss roll, loses to) the
+# player's card. Falls back to random if the wanted card isn't in hand. (R14, difficulty)
+func _robot_play(player_card: Type) -> Type:
+	if difficulty == Difficulty.MEDIUM:
+		return robot_pick()
+	var want_win: bool = randf() < DIFFICULTY_WIN_RATE[difficulty]
+	# The card the robot needs: one that beats player_card (win) or that player_card beats (loss).
+	var wanted: Type = BEATS[BEATS[player_card]] if want_win else BEATS[player_card]
+	var i := robot_hand.find(wanted)
+	if i != -1:
+		return robot_hand.pop_at(i)
+	return robot_pick()  # wanted card not in hand → fall back to random
+
+
 # ── Resolution (the 9-cell truth table — the key correctness surface, T3) ─────
 # Returns: 1 = player wins, -1 = robot wins, 0 = draw. (R16)
 func resolve(p: Type, r: Type) -> int:
@@ -117,7 +142,7 @@ func play_round(player_card: Type) -> Dictionary:
 	else:
 		player_hand.erase(player_card)  # erase removes the first matching value (fine for value array)
 
-	var robot_card := robot_pick()
+	var robot_card := _robot_play(player_card)
 	var outcome := resolve(player_card, robot_card)
 
 	# Exactly one point to the winner; none on a draw; never a step > 1. (R17, edge E3)
