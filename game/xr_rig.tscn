@@ -1,0 +1,27 @@
+; game/xr_rig.tscn — thin, conventional XR Tools rig (FSD R24, ASSETS §4.1).
+; StartXR boots OpenXR; XROrigin3D + XRCamera3D + two XRController3D, one FunctionPickup
+; per controller (the grabber, R1/R2). NO game logic lives here (R24). Instanced by BOTH
+; bringup.tscn (T10) and main.tscn so the rig is authored once.
+; ⚠️ Open in Godot 4.7 once to let it assign UIDs + confirm the addon scenes resolve.
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" uid="uid://clc5dre31iskm" path="res://addons/godot-xr-tools/xr/start_xr.tscn" id="1_startxr"]
+[ext_resource type="PackedScene" uid="uid://b4ysuy43poobf" path="res://addons/godot-xr-tools/functions/function_pickup.tscn" id="2_pickup"]
+
+[node name="XRRig" type="Node3D"]
+
+[node name="StartXR" parent="." instance=ExtResource("1_startxr")]
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+
+[node name="LeftHand" type="XRController3D" parent="XROrigin3D"]
+tracker = &"left_hand"
+
+[node name="FunctionPickup" parent="XROrigin3D/LeftHand" instance=ExtResource("2_pickup")]
+
+[node name="RightHand" type="XRController3D" parent="XROrigin3D"]
+tracker = &"right_hand"
+
+[node name="FunctionPickup" parent="XROrigin3D/RightHand" instance=ExtResource("2_pickup")]

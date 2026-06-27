@@ -12,9 +12,13 @@ extends Area3D
 
 # Tunable reveal pause so players see the win/lose reaction before the next round (R21).
 @export var reveal_pause: float = 2.0
+# Auto-restart delay after game over (R20). ponytail: timer auto-restart is the robust
+# default; a grabbable "play again" card is the polish path (DESIGN §7) — add later if wanted.
+@export var restart_delay: float = 5.0
 
 var _round_active := true
 
+@onready var _game_root: Node = get_parent()  # GameRoot.gd — owns hand spawning/clearing
 @onready var _score_panel: Label3D = $"../ScorePanel"
 @onready var _robot: Node = $"../RobotPlayer"  # RobotPlayer.gd, presents the robot's card (R15)
 
@@ -66,12 +70,22 @@ func _update_score(p: int, r: int) -> void:
 
 
 func _begin_next_round() -> void:
-	# refill_hands() already ran inside play_round(); here we just re-open the zone and
-	# (Stage 3) clear consumed cards / present the player's refreshed hand at the slots.
+	# refill_hands() already ran inside play_round(); GameRoot clears the consumed cards
+	# (player + robot, via the "card" group) and respawns the player's refreshed hand (R11).
+	if _game_root and _game_root.has_method("deal_player_hand"):
+		_game_root.deal_player_hand()
 	_round_active = true
 
 
 func _show_end_state(player_won: bool) -> void:
 	if _score_panel:
 		_score_panel.text = "YOU WIN!" if player_won else "ROBOT WINS"  # R19
-	# Restart (R20): add a grabbable "play again" card or a timer → GameState.new_game().
+	# Restart (R20): after a pause, start a fresh game and re-deal so the demo loops cleanly.
+	await get_tree().create_timer(restart_delay).timeout
+	if not is_instance_valid(self):  # zone may be gone if scene reloaded (E13-style guard)
+		return
+	GameState.new_game()
+	if _game_root and _game_root.has_method("deal_player_hand"):
+		_game_root.deal_player_hand()
+	_update_score(0, 0)
+	_round_active = true

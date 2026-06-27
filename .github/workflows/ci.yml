@@ -31,26 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: compile-check every script
-        shell: bash  # container default is sh; the loop below uses process substitution
         run: |
-          # `shell: bash` runs as `bash -eo pipefail`; this loop INTENTIONALLY relies on
-          # non-zero exits (godot fails on the tolerated GameState autoload false-positive;
-          # grep exits 1 on a clean file). Turn off errexit so only `exit $fail` decides.
-          set +e
-          fail=0
-          while IFS= read -r f; do
-            out=$(godot --headless --path . --check-only --script "res://${f#./}" 2>&1)
-            # Tolerate ONE unavoidable headless false-positive: standalone --check-only
-            # doesn't register the GameState autoload singleton (project.godot F1), so every
-            # scene script that calls GameState.* reports exactly this. A real typo names a
-            # DIFFERENT identifier and is still caught. ponytail: filter is the autoload name
-            # only; widen the upgrade path is to load scenes once autoloads are wired in.
-            errs=$(printf '%s\n' "$out" | grep -iE 'SCRIPT ERROR|Parse Error' \
-              | grep -v 'Identifier not found: GameState')
-            if [ -n "$errs" ]; then
-              echo "::error file=$f::$errs"; fail=1
-            fi
-          done < <(find . -name '*.gd' -not -path './addons/*')
-          exit $fail
+          # Full editor load compiles every .gd with all autoloads registered; per-script
+          # --check-only registers none, so it false-positives on GameState.*/XRTools* refs.
+          # Fail only on OUR scripts — addons/ headless autoload gripes are third-party noise.
+          godot --headless --editor --quit-after 300 >/tmp/compile.log 2>&1 || true
+          if grep 'Failed to load script' /tmp/compile.log | grep -v 'res://addons/'; then
+            echo "::error::script(s) above failed to compile"
+            exit 1
+          fi
       - name: test suite
         run: godot --headless --path . --script res://tests/test_game_state.gd

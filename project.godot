@@ -20,7 +20,7 @@ config_version=5
 
 config/name="土風水競 (do-fu-sui-kyo)"
 config/description="Single-player VR tabletop card game. See docs/DESIGN.md + docs/FSD.md."
-; No main_scene yet — headless --script does not need one. The template provides main.tscn.
+run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 
 [autoload]
@@ -29,6 +29,14 @@ config/features=PackedStringArray("4.7", "Mobile")
 ; GameState.Type / GameState.play_round(...). NOTE: headless --script runs do NOT
 ; load autoloads (finding F1) — tests instantiate via load("res://GameState.gd").new().
 GameState="*res://GameState.gd"
+
+[editor_plugins]
+
+; Godot XR Tools 4.5.1 (pre-fetched into addons/, ASSETS §1). Enabling the plugin makes
+; XRToolsPickable / StartXR / FunctionPickup available. ⚠️ Built for Godot 4.2+ and last
+; tagged against 4.4 — OPEN THE PROJECT IN 4.7 ONCE and confirm no addon parse errors before
+; deploying (DESIGN §3 "verify in-editor"). If 4.7 rejects it, pull a newer addon build.
+enabled=PackedStringArray("res://addons/godot-xr-tools/plugin.cfg")
 
 [physics]
 
@@ -41,3 +49,16 @@ common/physics_ticks_per_second=90
 ; Mobile renderer = Quest 3 target. Irrelevant to headless logic tests; set so the
 ; project opens correctly in-editor. The template may override — defer to it.
 renderer/rendering_method="mobile"
+
+[xr]
+
+; Built-in OpenXR drives the Quest runtime (NFR1, NFR2). StartXR (in main.tscn) boots it.
+openxr/enabled=true
+shaders/enabled=true
+; Foveated rendering for headroom on Quest 3 (NFR6). 0=off … 3=high; tune on device.
+openxr/foveation_level=3
+openxr/foveation_dynamic=true
+; ⬜ SET IN EDITOR (dropdowns — enum ints intentionally not hard-coded here):
+;   xr/openxr/reference_space → "Local Floor" (seated/standing table; runtime recenter)
+;   xr/openxr/extensions/hand_tracking → off (controller-only game, saves overhead)
+;   Project → Export: add the "Meta Quest" Android preset (OpenXR + Meta vendor), Runnable.
