@@ -18,6 +18,12 @@ const CARD_GROUP := &"card"
 const TABLE_REST_Y := 0.704  # height a card lies flat at — matches PlayZone.table_surface_y
 const FELT_CENTRE := Vector2(0.0, -0.6)  # felt circle centre (x,z) — matches FeltCircle/PlayZone
 const FELT_RADIUS := 0.25  # felt circle radius — ONLY inside here rests; anywhere else flies home
+# Edge-rest rescue: a card (0.1×0.15×0.03 box, face = local +Z) balanced on an edge keeps its
+# centre 5–7 cm above the flat-rest height, so the "still airborne" gate below would ignore it
+# forever. We catch it once it's stopped AND not lying flat, and lay it down (_rest_on_table eases
+# it flat). ponytail: calibrate these two knobs in-headset if the catch fires too eagerly/late.
+const REST_SPEED := 0.05  # ≤ this linear (m/s) and angular (rad/s) = the card has stopped moving
+const FLAT_FACE_DOT := 0.85  # |card-face · world-up|: above = lying flat, below = up on an edge
 # ponytail: distance check, no head collider — head cube is ~0.26 wide, so a 0.2 catch radius
 # is generous without snagging cards that merely pass nearby. Tune in-headset if it feels off.
 const HEAD_CATCH_RADIUS := 0.2  # HARD easter egg: a card this close to the robot head sticks in it
@@ -50,47 +56,56 @@ func _ready() -> void:
 # AND gives grabbable, re-throwable cards in one place.
 func _physics_process(_delta: float) -> void:
 	for c in get_tree().get_nodes_in_group(CARD_GROUP):
-		if not is_instance_valid(c) or not (c is RigidBody3D):
+		if not is_instance_valid(c) or not (c is CardFace):
 			continue
-		if not c.has_meta("home"):  # robot card / not a player hand card
+		var card: CardFace = c  # typed handle — card_type + RigidBody3D members resolve statically,
+		# so the rest of the loop is type-checked instead of leaning on Variant (no := inference trap).
+		if not card.has_meta("home"):  # robot card / not a player hand card
 			continue
-		if c.freeze:  # hovering, resting, resolved, or mid-return — all settled/controlled
+		if card.freeze:  # hovering, resting, resolved, or mid-return — all settled/controlled
 			continue
-		if c.has_method("is_picked_up") and c.is_picked_up():  # in the player's hand
+		if card.is_picked_up():  # in the player's hand
 			continue
-		var pos: Vector3 = c.global_position
+		var pos := card.global_position
 		# HARD easter egg: a card lobbed into the robot's head sticks there, and the robot plays
 		# THAT card next (it picks from its head, not its hand) — so the player rigs the round.
 		if (
 			GameState.difficulty == GameState.Difficulty.HARD
 			and pos.distance_to(_robot.head_position()) < HEAD_CATCH_RADIUS
 		):
-			GameState.forced_robot_card = c.card_type
-			_robot.catch_in_head(c)
+			GameState.forced_robot_card = card.card_type
+			_robot.catch_in_head(card)
 			continue
-		if pos.y >= TABLE_REST_Y + 0.02:  # still in the air → leave the throw alone
-			continue
-		# It's settled at/below table height. Inside the felt circle → snap flat on top the
-		# instant it touches (a fast card can never sink through). Anywhere else — table top
-		# outside the circle, or fallen to the floor — it missed → fly it home (R-miss recovery).
+		if pos.y >= TABLE_REST_Y + 0.02:  # centre rides high
+			# Usually that means mid-flight — leave the throw alone. EXCEPT a card that has stopped
+			# moving up here, with its face NOT pointing up, isn't flying: it's standing on an edge
+			# (centre high only because the card stands tall). Fall through so it gets laid flat;
+			# anything still moving, or already lying flat (e.g. stacked on another card), is left be.
+			var stopped := (
+				card.linear_velocity.length() <= REST_SPEED
+				and card.angular_velocity.length() <= REST_SPEED
+			)
+			var lying_flat := absf(card.global_transform.basis.z.dot(Vector3.UP)) > FLAT_FACE_DOT
+			if not stopped or lying_flat:
+				continue
+		# It's settled — a normal landing or a card balanced on an edge. Inside the felt circle it's a
+		# play: lay it flat (a smooth ease-out, frozen the instant we catch it so it can't sink
+		# through). Anywhere else — outside the circle, or fallen to the floor — it missed → fly it
+		# home (R-miss recovery).
 		if Vector2(pos.x, pos.z).distance_to(FELT_CENTRE) < FELT_RADIUS:
-			_rest_on_table(c)
+			_rest_on_table(card)
 		else:
-			_return_to_slot(c)
+			_return_to_slot(card)
 
 
-# Snap a settled card flat (face-up) onto the table where it lies, frozen so it stays put
-# and stops sinking. Still grabbable — XRToolsPickable unfreezes it on the next pickup.
-func _rest_on_table(card: RigidBody3D) -> void:
-	card.linear_velocity = Vector3.ZERO
-	card.angular_velocity = Vector3.ZERO
+# Lay a settled card flat (face-up) where it lies — whether a normal landing or one toppling off
+# its edge. settle_to() freezes it (kinematic the instant we call, so a fast card can't sink
+# through) and eases it down rather than popping. Still grabbable — XRToolsPickable unfreezes it.
+func _rest_on_table(card: CardFace) -> void:
 	var p := card.global_position
-	card.freeze = true
-	card.global_transform = Transform3D(
-		Basis(Vector3.RIGHT, -PI / 2), Vector3(p.x, TABLE_REST_Y, p.z)
-	)
-	# A good landing: hand off to PlayZone to gild the ring, throw the robot's card, and score.
-	# Its _round_active latch ignores re-calls, so the frozen card resting here only fires once.
+	card.settle_to(Transform3D(Basis(Vector3.RIGHT, -PI / 2), Vector3(p.x, TABLE_REST_Y, p.z)))
+	# A good landing: hand off to PlayZone to gild the ring, throw the robot's card, and score. The
+	# settle tween plays in parallel — resolve never moves the card, and its latch ignores re-calls.
 	_play_zone.resolve(card)
 
 

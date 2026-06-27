@@ -70,13 +70,27 @@ shader = ExtResource("6_wall")
 ; No shader_parameter overrides — wall.gdshader uniform defaults are the single source of truth.
 ; Tune the walls by editing wall.gdshader; don't re-add overrides here (they'd mask the file).
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_room"]
+[sub_resource type="SphereMesh" id="CylinderMesh_room"]
 material = SubResource("ShaderMaterial_wall")
-; top_radius 0 turns the cylinder into a cone: walls slope in to a point at the apex (a dome).
-top_radius = 0.0
+; Hemisphere = a real dome: curved walls arcing overhead instead of a cone's straight slope.
+; radius 3.0 matches the old bottom_radius; height 3.0 = radius for a true half-sphere.
+radius = 3.0
+height = 3.0
+is_hemisphere = true
+radial_segments = 64
+rings = 32
+
+; Dark floor disc — fills the dome's open base so the ground reads as solid, not infinite void.
+; Near the WorldEnvironment color so it stays unobtrusive; radius matches the dome rim (3.0).
+[sub_resource type="StandardMaterial3D" id="StandardMaterial_floor"]
+albedo_color = Color(0.05, 0.05, 0.07, 1)
+roughness = 1.0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_floor"]
+material = SubResource("StandardMaterial_floor")
+top_radius = 3.0
 bottom_radius = 3.0
-height = 4.0
-cap_top = false
+height = 0.01
 cap_bottom = false
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_felt"]
@@ -129,8 +143,12 @@ shape = SubResource("CylinderShape3D_top")
 [node name="Environment" type="Node3D" parent="." unique_id=611089111]
 
 [node name="RoomShell" type="MeshInstance3D" parent="Environment" unique_id=611089112]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -0.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
 mesh = SubResource("CylinderMesh_room")
+
+[node name="FloorDisc" type="MeshInstance3D" parent="Environment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
+mesh = SubResource("CylinderMesh_floor")
 
 [node name="GameRoot" type="Node3D" parent="." unique_id=791089628]
 script = ExtResource("2_gameroot")

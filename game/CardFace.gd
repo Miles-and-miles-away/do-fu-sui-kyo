@@ -12,6 +12,7 @@
 # Encodes finding F2 (per-instance material) and E13 (await-after-free guard).
 # Root extends XRToolsPickable (a RigidBody3D) so ONE node is grabbable/throwable AND owns
 # its face; PlayZone reads card_type / show_smile() off the body entering the zone (DESIGN §6).
+class_name CardFace  # named so the GameRoot card monitor can hold a typed handle
 extends "res://addons/godot-xr-tools/objects/pickable.gd"  # XRToolsPickable, a RigidBody3D
 
 # Card type as 0/1/2 — SAME ordering as GameState.Type (WATER=0, SKY=1, EARTH=2).
@@ -125,3 +126,17 @@ func show_smile() -> void:
 func show_cry() -> void:
 	_locked = true
 	_apply_texture(tex_cry)
+
+
+# Smoothly settle the card to a resting transform instead of snapping there. freeze = true makes
+# it kinematic the instant we call (so it can't sink through the table while the tween plays) and
+# keeps GameRoot's monitor from re-processing it; the short ease-out tween just lays it down nicely.
+# Returns the Tween so a caller can await .finished. Shared by table landings + robot placement.
+func settle_to(target: Transform3D, secs: float = 0.18) -> Tween:
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	freeze = true
+	var tw := create_tween()
+	tw.tween_property(self, "global_transform", target, secs)
+	tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	return tw

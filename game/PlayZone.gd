@@ -125,17 +125,17 @@ func resolve(card: Node) -> void:
 		_begin_next_round()
 
 
-# Snap a thrown card flat (face-up) and frozen onto the table at `pos`. The card's quad
-# faces +Z, so tipping it -90° about X points the face straight up. ponytail: snap-flat is
-# the robust default — thin cards land on edge otherwise; revisit if a physics rest looks better.
+# Lay the robot's thrown card flat (face-up) and frozen onto the table at `pos`. The card's quad
+# faces +Z, so tipping it -90° about X points the face straight up. card.settle_to eases it down
+# (frozen) instead of popping; non-card bodies (shouldn't happen) just get placed.
 func _place_flat(card: Node, pos: Vector3) -> void:
 	if not is_instance_valid(card):
 		return
-	if card is RigidBody3D:
-		card.linear_velocity = Vector3.ZERO
-		card.angular_velocity = Vector3.ZERO
-		card.freeze = true
-	card.global_transform = Transform3D(Basis(Vector3.RIGHT, -PI / 2), pos)
+	var target := Transform3D(Basis(Vector3.RIGHT, -PI / 2), pos)
+	if card is CardFace:
+		card.settle_to(target)
+	else:
+		card.global_transform = target
 
 
 # Round stinger by outcome (1 win / -1 lose / 0 draw). tools/gen_sfx.py renders these;

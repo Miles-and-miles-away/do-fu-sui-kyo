@@ -133,8 +133,12 @@ func catch_in_head(card: Node) -> void:
 	# Plant it flat against the front face, looking back at the player. The head's -Z faces the
 	# player (eyes live there), and a card's face is its +Z — so rotate 180° about Y to turn the
 	# face outward, then push it out along -Z. Explicit basis kills the tumbling throw-rotation
-	# (which left the thin quad edge-on and invisible).
-	card.transform = Transform3D(Basis(Vector3.UP, PI), Vector3(0.0, 0.0, -0.16))
+	# (which left the thin quad edge-on and invisible). Ease into place rather than snapping — the
+	# card slides onto the head over a beat. Local transform, so it rides the head's look_at swivel.
+	var stuck := Transform3D(Basis(Vector3.UP, PI), Vector3(0.0, 0.0, -0.16))
+	var tw := create_tween()
+	tw.tween_property(card, "transform", stuck, 0.15)
+	tw.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_head_card = card
 
 

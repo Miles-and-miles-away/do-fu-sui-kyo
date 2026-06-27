@@ -164,6 +164,12 @@ func _on_restart() -> void:
 
 func _on_difficulty(level: int) -> void:
 	GameState.set_difficulty(level)
+	if level == GameState.Difficulty.HARD:
+		# 鬼 mode forces the creepy track (player can skip back to the cycle afterwards).
+		_track_label.text = Music.play_creepy()
+		_track_label.visible = true
+		_track_timer.start(2.0)
+		_update_playpause_icon()
 	_update_difficulty_highlight()
 
 
