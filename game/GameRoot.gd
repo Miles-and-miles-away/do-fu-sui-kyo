@@ -19,11 +19,15 @@ const TABLE_REST_Y := 0.704  # height a card lies flat at — matches PlayZone.t
 const FELT_CENTRE := Vector2(0.0, -0.6)  # felt circle centre (x,z) — matches FeltCircle/PlayZone
 const FELT_RADIUS := 0.25  # felt circle radius — ONLY inside here rests; anywhere else flies home
 # Edge-rest rescue: a card (0.1×0.15×0.03 box, face = local +Z) balanced on an edge keeps its
-# centre 5–7 cm above the flat-rest height, so the "still airborne" gate below would ignore it
-# forever. We catch it once it's stopped AND not lying flat, and lay it down (_rest_on_table eases
-# it flat). ponytail: calibrate these two knobs in-headset if the catch fires too eagerly/late.
+# centre a few cm above the flat-rest height, so the "still airborne" gate below would ignore it
+# forever. We catch it once it's stopped, low, AND not lying flat, and lay it down (_rest_on_table
+# eases it flat). ponytail: calibrate these knobs in-headset if the catch fires too eagerly/late.
 const REST_SPEED := 0.05  # ≤ this linear (m/s) and angular (rad/s) = the card has stopped moving
 const FLAT_FACE_DOT := 0.85  # |card-face · world-up|: above = lying flat, below = up on an edge
+# An on-edge card's centre rides at most half its longest span above the contact point — a
+# corner-balance of this box is ~9 cm — so a STOPPED card higher than this isn't edge-resting,
+# it's a lob pausing at its apex: leave it to finish the arc. Guards the rescue against soft lobs.
+const EDGE_REST_CEIL_Y := TABLE_REST_Y + 0.1
 # ponytail: distance check, no head collider — head cube is ~0.26 wide, so a 0.2 catch radius
 # is generous without snagging cards that merely pass nearby. Tune in-headset if it feels off.
 const HEAD_CATCH_RADIUS := 0.2  # HARD easter egg: a card this close to the robot head sticks in it
@@ -77,16 +81,18 @@ func _physics_process(_delta: float) -> void:
 			_robot.catch_in_head(card)
 			continue
 		if pos.y >= TABLE_REST_Y + 0.02:  # centre rides high
-			# Usually that means mid-flight — leave the throw alone. EXCEPT a card that has stopped
-			# moving up here, with its face NOT pointing up, isn't flying: it's standing on an edge
-			# (centre high only because the card stands tall). Fall through so it gets laid flat;
-			# anything still moving, or already lying flat (e.g. stacked on another card), is left be.
-			var stopped := (
-				card.linear_velocity.length() <= REST_SPEED
+			# Usually that means mid-flight — leave the throw alone. EXCEPT a card that has come to
+			# rest up here, low enough to be touching down and with its face NOT pointing up, isn't
+			# flying: it's standing on an edge (centre high only because the card stands tall). Fall
+			# through so it gets laid flat. Anything still moving, too high to be edge-resting (a
+			# paused lob), or already lying flat (stacked on another card) is left be.
+			var on_edge := (
+				pos.y < EDGE_REST_CEIL_Y
+				and card.linear_velocity.length() <= REST_SPEED
 				and card.angular_velocity.length() <= REST_SPEED
+				and absf(card.global_transform.basis.z.dot(Vector3.UP)) <= FLAT_FACE_DOT
 			)
-			var lying_flat := absf(card.global_transform.basis.z.dot(Vector3.UP)) > FLAT_FACE_DOT
-			if not stopped or lying_flat:
+			if not on_edge:
 				continue
 		# It's settled — a normal landing or a card balanced on an edge. Inside the felt circle it's a
 		# play: lay it flat (a smooth ease-out, frozen the instant we catch it so it can't sink

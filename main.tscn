@@ -70,7 +70,7 @@ shader = ExtResource("6_wall")
 ; No shader_parameter overrides — wall.gdshader uniform defaults are the single source of truth.
 ; Tune the walls by editing wall.gdshader; don't re-add overrides here (they'd mask the file).
 
-[sub_resource type="SphereMesh" id="CylinderMesh_room"]
+[sub_resource type="SphereMesh" id="SphereMesh_room"]
 material = SubResource("ShaderMaterial_wall")
 ; Hemisphere = a real dome: curved walls arcing overhead instead of a cone's straight slope.
 ; radius 3.0 matches the old bottom_radius; height 3.0 = radius for a true half-sphere.
@@ -144,7 +144,7 @@ shape = SubResource("CylinderShape3D_top")
 
 [node name="RoomShell" type="MeshInstance3D" parent="Environment" unique_id=611089112]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
-mesh = SubResource("CylinderMesh_room")
+mesh = SubResource("SphereMesh_room")
 
 [node name="FloorDisc" type="MeshInstance3D" parent="Environment"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
