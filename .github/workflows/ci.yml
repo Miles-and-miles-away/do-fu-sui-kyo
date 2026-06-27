@@ -32,12 +32,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: compile-check every script
         run: |
-          # A full editor load registers ALL autoloads (GameState + godot-xr-tools') and
-          # compiles every .gd while building the class cache. Per-script `--check-only`
-          # can't: it registers no autoloads, so it false-positives on every GameState.*
-          # and every XRTools* reference. Fail only when one of OUR scripts fails to load;
-          # addons/ is third-party (excluded everywhere) and its headless-only autoload
-          # gripes (XRToolsUserSettings/RumbleManager have no headset to bind) are noise.
+          # Full editor load compiles every .gd with all autoloads registered; per-script
+          # --check-only registers none, so it false-positives on GameState.*/XRTools* refs.
+          # Fail only on OUR scripts — addons/ headless autoload gripes are third-party noise.
           godot --headless --editor --quit-after 300 >/tmp/compile.log 2>&1 || true
           if grep 'Failed to load script' /tmp/compile.log | grep -v 'res://addons/'; then
             echo "::error::script(s) above failed to compile"
