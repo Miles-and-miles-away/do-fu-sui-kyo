@@ -18,7 +18,8 @@ extends Node3D
 # ── Placement (world coords; RobotPlayer sits at the scene origin) ─────────────
 @export var body_origin := Vector3(0.0, 0.0, -1.3)  # robot stands here, faces +Z (toward player)
 @export var deck_point := Vector3(0.0, 0.72, -1.08)  # invisible throw origin in front of the robot
-@export var wire_color := Color(0.25, 1.0, 0.85)  # cyan circuit glow
+@export var wire_color := Color(0.25, 1.0, 0.85)  # cyan circuit glow (normal)
+@export var menace_color := Color(1.0, 0.18, 0.2)  # red glow on the 鬼 (HARD) difficulty
 @export var tear_color := Color(0.4, 0.8, 1.0)  # neon blue — the loss tear, set apart from the face
 @export var wire_energy: float = 1.6
 @export var body_radius: float = 0.2  # torso cylinder radius
@@ -41,12 +42,24 @@ var _mouth_smile: ArrayMesh  # upturned mouth, shown on a win
 var _tear: MeshInstance3D  # neon tear, hidden until the robot loses
 var _shoulder: Vector3  # arm pivot world position
 var _rest_aim: Vector3  # where the arm points when idle (down-forward, never vertical)
+var _head_card: Node = null  # card the player lobbed into the head (HARD); played next
 
 @onready var _game_root: Node = get_parent()  # GameRoot.gd — the card factory (frames live there)
 
 
 func _ready() -> void:
 	_build_body()
+	# Reskin to red on 鬼 (HARD), back to cyan otherwise. Driven by the brain so it always tracks
+	# the live difficulty — including new_game()'s reset to MEDIUM.
+	GameState.difficulty_changed.connect(_on_difficulty_changed)
+	_on_difficulty_changed(GameState.difficulty)
+
+
+func _on_difficulty_changed(level: int) -> void:
+	var c: Color = menace_color if level == GameState.Difficulty.HARD else wire_color
+	if _mat:
+		_mat.albedo_color = c
+		_mat.emission = c
 
 
 # Head tracks the player every frame — one look_at on one node, negligible cost (NFR6).
@@ -64,6 +77,19 @@ func _process(_delta: float) -> void:
 # Returns the card node immediately so PlayZone can drive its face after the settle window;
 # the reach/throw animation plays out asynchronously and PlayZone snaps the card flat at settle.
 func present_card(t: int, lay_pos: Vector3) -> Node:
+	# Easter egg: if the player stuffed a card into the head, the robot throws THAT one from
+	# the head instead of dealing a fresh card from the deck (GameState forced its type to match).
+	if _head_card and is_instance_valid(_head_card):
+		var head_card := _head_card
+		_head_card = null
+		# _head_card is typed Node (cards pass around as Node here); global_position lives on
+		# Node3D, so name the type explicitly rather than inferring it off a Node-typed local.
+		var grab_at: Vector3 = head_card.global_position  # where it's stuck — arm reaches up to here
+		head_card.reparent(get_tree().current_scene)  # back to world space, keeps its pose
+		if head_card is RigidBody3D:
+			head_card.freeze = true
+		_play_card(head_card, lay_pos, grab_at)
+		return head_card
 	if not (_game_root and _game_root.has_method("make_card")):
 		push_warning("RobotPlayer: GameRoot factory missing; cannot present robot card")
 		return null
@@ -71,8 +97,32 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
 	get_tree().current_scene.add_child(card)
 	card.freeze = true  # carried kinematically; no gravity while it waits/travels
 	card.global_position = deck_point
-	_play_card(card, lay_pos)  # fire-and-forget; awaits internally
+	_play_card(card, lay_pos, deck_point)  # fire-and-forget; awaits internally
 	return card
+
+
+# World position of the head — GameRoot uses it to detect a card lobbed into the head (HARD).
+func head_position() -> Vector3:
+	return _head.global_position if _head else Vector3.INF
+
+
+# Stick a thrown player card to the head: freeze it, parent it to the head so it rides the
+# head's look_at swivel, and hold it until the robot plays it next via present_card.
+# ponytail: ignore a second throw while one's already stuck — one rigged card per round.
+func catch_in_head(card: Node) -> void:
+	if _head_card and is_instance_valid(_head_card):
+		return
+	if card is RigidBody3D:
+		card.linear_velocity = Vector3.ZERO
+		card.angular_velocity = Vector3.ZERO
+		card.freeze = true
+	card.reparent(_head)
+	# Plant it flat against the front face, looking back at the player. The head's -Z faces the
+	# player (eyes live there), and a card's face is its +Z — so rotate 180° about Y to turn the
+	# face outward, then push it out along -Z. Explicit basis kills the tumbling throw-rotation
+	# (which left the thin quad edge-on and invisible).
+	card.transform = Transform3D(Basis(Vector3.UP, PI), Vector3(0.0, 0.0, -0.16))
+	_head_card = card
 
 
 # Face expressions, mirroring the robot card (PlayZone calls these on resolution, R7/R15).
@@ -99,16 +149,16 @@ func reset_face() -> void:  # back to neutral between rounds
 
 # Reach to the deck to TOUCH a card, wind up, then THROW it: the card leaves the claw and
 # arcs free to the table while the arm follows through — it isn't escorted the whole way.
-func _play_card(card: Node, lay_pos: Vector3) -> void:
+func _play_card(card: Node, lay_pos: Vector3, from_point: Vector3) -> void:
 	if _arm:
-		await _tween_aim(_rest_aim, deck_point, reach_time)  # reach down, touch the card
+		await _tween_aim(_rest_aim, from_point, reach_time)  # reach to the card (deck or head)
 		if not is_instance_valid(self) or not is_instance_valid(card):
 			return
 
 	# Wind-up: lift the card up-and-back into the claw, arm tracking it (cock the throw).
-	var wind := deck_point + Vector3(0.0, 0.32, -0.12)
+	var wind := from_point + Vector3(0.0, 0.32, -0.12)
 	if _arm:
-		create_tween().tween_method(_aim_arm, deck_point, wind, wind_time)
+		create_tween().tween_method(_aim_arm, from_point, wind, wind_time)
 	var wind_tw := create_tween()
 	wind_tw.tween_property(card, "global_position", wind, wind_time)
 	await wind_tw.finished

@@ -67,6 +67,27 @@ func is_playing() -> bool:
 	return not _user_paused
 
 
+# Win celebration: swap the soundtrack to the victory anthem (looping, not part of the cycle).
+# reset_track() puts the cycled track back. PlayZone calls victory() on a game-over win and
+# reset_track() on Restart.
+func victory() -> void:
+	var stream: AudioStream = load("res://music/Victory.mp3")
+	if stream == null:  # not-yet-imported file just means silence, never a crash
+		return
+	if stream is AudioStreamMP3:
+		stream.loop = true
+	_user_paused = false
+	_player.stream = stream
+	_player.play()
+	_apply_pause()
+
+
+# Back to the currently-selected cycle track (turns off the victory anthem on Restart).
+func reset_track() -> void:
+	_user_paused = false
+	_play_current()
+
+
 # Pause/resume around a one-shot jingle (PlayZone calls these on stinger play/finish).
 func duck() -> void:
 	_ducked = true

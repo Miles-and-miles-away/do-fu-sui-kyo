@@ -259,6 +259,14 @@ func _t10_difficulty(gs) -> void:
 	_check(r.outcome == 1, "T10: EASY should lose to the player, got outcome %d" % r.outcome)
 	gs.difficulty = gs.Difficulty.MEDIUM  # restore default for later tests
 
+	# Easter egg: forced_robot_card overrides the pick at any difficulty, then clears itself.
+	gs.new_game()
+	gs.forced_robot_card = gs.Type.EARTH  # player stuffed EARTH into the head
+	r = gs.play_round(gs.Type.WATER)  # EARTH beats WATER → robot wins
+	_check(r.robot_card == gs.Type.EARTH, "T10: forced card not played")
+	_check(r.outcome == -1, "T10: forced EARTH should beat WATER, got %d" % r.outcome)
+	_check(gs.forced_robot_card == -1, "T10: forced_robot_card should reset after use")
+
 
 # ── T1 — full-game integration: step≤1, refill, ends exactly at 3 (R9,R11,R17,R19,R23) ─
 func _t1_integration(gs) -> void:

@@ -35,7 +35,9 @@ func _ready() -> void:
 	# fingertip poke (or the laser) lands easily. ────────────────────────────────────────
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	col.offset_left = -250
+	# 306 wide (was 226): three difficulty buttons across need ~95px each or their JP/EN labels
+	# spill past the right edge. Measured headless against the 840×510 viewport (probe_hud.gd).
+	col.offset_left = -330
 	col.offset_right = -24
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 28)
@@ -51,6 +53,11 @@ func _ready() -> void:
 	]:
 		var b := _make_button(diff_row)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Three-across, so smaller font + tighter side margins to fit the long JP words.
+		b.add_theme_font_size_override("font_size", 20)
+		b.add_theme_stylebox_override("hover", _slab(EDGE, 4, 6))
+		b.add_theme_stylebox_override("pressed", _slab(EDGE, 0, 6))
+		b.add_theme_stylebox_override("focus", _slab(BG, 4, 6))
 		b.pressed.connect(_on_difficulty.bind(level))
 		_diff_btns.append(b)
 	_rules_btn = _make_button(col)
@@ -96,7 +103,7 @@ func _ready() -> void:
 	_rules_panel.offset_left = 24
 	_rules_panel.offset_top = 24
 	_rules_panel.offset_bottom = -24
-	_rules_panel.offset_right = 560
+	_rules_panel.offset_right = 500  # stop short of the widened button column (left edge now ~510)
 	_rules_panel.add_theme_stylebox_override("panel", _slab(BG, 4))
 	_rules_panel.visible = false
 	add_child(_rules_panel)
@@ -120,7 +127,7 @@ func _ready() -> void:
 # Re-render every caption in the current language. Called on ready and on toggle.
 func _retext() -> void:
 	_restart_btn.text = Lang.t("RESTART", "リスタート")
-	var diff_text := [Lang.t("EASY", "やさしい"), Lang.t("NORMAL", "ふつう"), Lang.t("HARD", "むずかしい")]
+	var diff_text := [Lang.t("EASY", "やさしい"), Lang.t("NORMAL", "ふつう"), Lang.t("HARD", "鬼")]
 	for i in _diff_btns.size():
 		_diff_btns[i].text = diff_text[i]
 	_update_difficulty_highlight()
@@ -152,10 +159,11 @@ func _on_restart() -> void:
 	_set_rules_visible(false)
 	# PlayZone owns the scene-side reset (re-deal, faces, recenter). true = recenter the player.
 	get_tree().call_group("game_control", "restart", true)
+	_update_difficulty_highlight()  # new_game() reset difficulty to MEDIUM — reflect it
 
 
 func _on_difficulty(level: int) -> void:
-	GameState.difficulty = level
+	GameState.set_difficulty(level)
 	_update_difficulty_highlight()
 
 
@@ -163,7 +171,7 @@ func _on_difficulty(level: int) -> void:
 func _update_difficulty_highlight() -> void:
 	for i in _diff_btns.size():
 		var active := i == GameState.difficulty
-		_diff_btns[i].add_theme_stylebox_override("normal", _slab(EDGE if active else BG, 4))
+		_diff_btns[i].add_theme_stylebox_override("normal", _slab(EDGE if active else BG, 4, 6))
 		_diff_btns[i].add_theme_color_override("font_color", BG if active else TEXT)
 
 
@@ -230,15 +238,15 @@ func _label(parent: Node, size: int) -> Label:
 
 # A retro slab: solid fill, square corners, bright border, and a thick bottom/right edge
 # (`lift`) that fakes a chunky 3D bevel. lift=0 + the shifted margins read as "pushed in".
-func _slab(fill: Color, lift: int) -> StyleBoxFlat:
+func _slab(fill: Color, lift: int, h: int = 16) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = fill
 	s.border_color = EDGE
 	s.set_border_width_all(3)
 	s.border_width_bottom = 3 + lift
 	s.border_width_right = 3 + lift
-	s.content_margin_left = 16
-	s.content_margin_right = 16
+	s.content_margin_left = h
+	s.content_margin_right = h
 	# Raised buttons carry the label high; a pressed one (lift 0) drops it the same 4px the
 	# bevel lost, so the text physically sinks with the chip.
 	s.content_margin_top = 10 + (4 - lift)

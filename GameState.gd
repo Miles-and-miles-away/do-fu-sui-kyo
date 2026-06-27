@@ -15,6 +15,10 @@
 # instance directly. So: keep first-time setup in new_game() (callable), not only in _ready().
 extends Node
 
+# Emitted whenever difficulty changes (HUD pick or new_game reset) so the VR layer can react —
+# e.g. the robot reskins to its 鬼/red menace glow on HARD. Pure-logic side stays node-free.
+signal difficulty_changed(level: int)
+
 # Three card types. WATER=Fish, SKY=Bird, EARTH=Dino. (R4)
 enum Type { WATER, SKY, EARTH }
 
@@ -31,9 +35,14 @@ const BEATS := {
 	Type.EARTH: Type.WATER,  # Dino beats Fish
 }
 
+# Per-round roll the robot makes (win this round vs throw it), NOT the realized rate — the
+# random fallback (wanted card absent from a 3-card hand, ~30% of rounds) drags it toward 1/3.
+# Tuned so the PLAYER wins the first-to-3 MATCH at the design targets: EASY ~70%, HARD ~20%
+# (MEDIUM is structurally ~50% — symmetric random, no knob). Retune against the match rate,
+# not this number. Verified by Monte Carlo (sweep in _dev_notes).
 const DIFFICULTY_WIN_RATE := {
-	Difficulty.EASY: 0.3,
-	Difficulty.HARD: 0.7,
+	Difficulty.EASY: 0.36,
+	Difficulty.HARD: 0.72,
 }
 
 # Display + sprite-lookup key (R8). Kept as Fish/Bird/Dino per the design.
@@ -48,12 +57,15 @@ const TYPE_NAMES := {
 @export var copies_per_type: int = 6
 
 # --- State (the authoritative shapes, FSD §5) ---
-var difficulty: int = Difficulty.MEDIUM  # robot skill, set from the HUD
+var difficulty: int = Difficulty.MEDIUM  # robot skill, set via set_difficulty() (HUD)
 var deck: Array[Type] = []
 var player_hand: Array[Type] = []
 var robot_hand: Array[Type] = []
 var player_score: int = 0
 var robot_score: int = 0
+# Hard-mode easter egg: -1 means "no override". When the player lobs a card into the robot's
+# head (VR layer, HARD only), it sets this to that card's Type and the robot plays it next.
+var forced_robot_card: int = -1
 
 
 func _ready() -> void:
@@ -66,9 +78,18 @@ func new_game() -> void:
 	# Fresh match: zero scores, fresh shuffled deck, both hands one-of-each. (R10, R20)
 	player_score = 0
 	robot_score = 0
+	difficulty = Difficulty.MEDIUM
 	_build_deck()
 	player_hand = [Type.WATER, Type.SKY, Type.EARTH]
 	robot_hand = [Type.WATER, Type.SKY, Type.EARTH]
+	forced_robot_card = -1
+	difficulty_changed.emit(difficulty)  # let the VR layer reset the robot's skin on a fresh match
+
+
+# Set robot skill from the HUD and notify the VR layer (robot reskin). (R14)
+func set_difficulty(level: int) -> void:
+	difficulty = level
+	difficulty_changed.emit(level)
 
 
 func _build_deck() -> void:
@@ -110,6 +131,12 @@ func robot_pick() -> Type:
 # win rate and then deliberately pick a card that beats (or, on a loss roll, loses to) the
 # player's card. Falls back to random if the wanted card isn't in hand. (R14, difficulty)
 func _robot_play(player_card: Type) -> Type:
+	# Easter egg: the player stuffed a card into the robot's head — it plays exactly that.
+	if forced_robot_card != -1:
+		var forced: Type = forced_robot_card
+		forced_robot_card = -1
+		robot_hand.erase(forced)  # play it from hand if held; no-op if not (it came from the head)
+		return forced
 	if difficulty == Difficulty.MEDIUM:
 		return robot_pick()
 	var want_win: bool = randf() < DIFFICULTY_WIN_RATE[difficulty]

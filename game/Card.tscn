@@ -34,7 +34,7 @@ collision_mask = 196615
 mass = 0.3
 ; Lighter-than-real gravity so a thrown card floats and carries to the felt instead of
 ; dropping at your feet — easier to throw. Tune with FunctionPickup.impulse_factor (xr_rig).
-gravity_scale = 0.6
+gravity_scale = 0.45
 continuous_cd = true
 freeze_mode = 1
 script = ExtResource("1_cardface")

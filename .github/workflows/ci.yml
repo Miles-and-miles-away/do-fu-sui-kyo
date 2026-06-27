@@ -42,4 +42,6 @@ jobs:
             exit 1
           fi
       - name: test suite
-        run: godot --headless --path . --script res://tests/test_game_state.gd
+        run: |
+          godot --headless --path . --script res://tests/test_game_state.gd
+          godot --headless --audio-driver Dummy --path . --script res://tests/test_music.gd

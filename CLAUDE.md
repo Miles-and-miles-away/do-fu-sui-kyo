@@ -10,8 +10,12 @@ Run from the repo root and make all three clean:
 ```sh
 gdformat .                                           # auto-format (CI checks this)
 gdlint .                                             # lint
-godot --headless --path . --script res://tests/test_game_state.gd   # tests, exit 0
+godot --headless --path . --script res://tests/test_game_state.gd   # logic tests, exit 0
+godot --headless --audio-driver Dummy --path . --script res://tests/test_music.gd  # music tests, exit 0
 ```
+
+(`--audio-driver Dummy` on the music suite so it doesn't grab a real audio device. Close the
+Godot editor first — an open editor holds the project and headless `--script` runs will hang.)
 
 - A `pre-commit` hook runs `gdformat` + `gdlint` automatically — install it once with
   `pip install pre-commit && pre-commit install`. The compile-check + test suite run in

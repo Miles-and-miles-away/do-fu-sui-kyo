@@ -10,14 +10,14 @@
 # paper-thin, enable continuous_cd on cards, raise physics ticks (done in project.godot).
 extends Area3D
 
+# Floated in the middle as the win celebration (player-victory only). 1500×1500.
+const ICON := preload("res://art/icon.png")
+
 # Time the robot gets to reach out and lay its card down before the win/lose verdict (R21).
 # Must be ≥ RobotPlayer reach+wind+flight (default 1.08) so the thrown card has landed.
 @export var settle_time: float = 1.1
 # After the verdict faces show, how long to view them before the next round.
 @export var reveal_pause: float = 2.0
-# Auto-restart delay after game over (R20). ponytail: timer auto-restart is the robust
-# default; a grabbable "play again" card is the polish path (DESIGN §7) — add later if wanted.
-@export var restart_delay: float = 5.0
 # Flat-landing layout (calibrate in-headset): table-top height the cards rest at, and the
 # x-offset each card sits from the zone centre so player's and robot's cards never overlap.
 @export var table_surface_y: float = 0.704
@@ -33,6 +33,8 @@ var _ended := 0
 var _gen := 0
 # Non-positional player: the win/lose stinger is UI feedback, not a world sound (both ears).
 var _sfx := AudioStreamPlayer.new()
+# Win celebration node (icon + fireworks); held so a restart can clear it mid-show.
+var _party: Node3D
 
 @onready var _game_root: Node = get_parent()  # GameRoot.gd — owns hand spawning/clearing
 @onready var _score_panel: Label3D = $"../ScorePanel"
@@ -198,27 +200,34 @@ func _flourish(tone: Color, grow: float, sparks: int, hold: bool) -> void:
 	_sparkle(sparks)
 
 
+# An unshaded, billboarded one-shot spark emitter tinted `tone`, quads `size` wide. Shared by
+# the score-panel sparkle and the win fireworks — caller sets amount/velocity/gravity/lifetime.
+func _spark_emitter(tone: Color, size: float) -> CPUParticles3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.emission_enabled = true
+	mat.emission = tone
+	mat.albedo_color = tone
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.billboard_keep_scale = true
+	var quad := QuadMesh.new()
+	quad.size = Vector2(size, size)
+	quad.material = mat
+	var fx := CPUParticles3D.new()
+	fx.mesh = quad
+	fx.one_shot = true
+	fx.explosiveness = 0.95
+	return fx
+
+
 # One-shot sparkle burst at the score panel. ponytail: CPUParticles is plenty for a
 # ~couple-dozen-spark pop; switch to GPUParticles only if Quest profiling flags it.
 func _sparkle(amount: int) -> void:
 	if not _score_panel:
 		return
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.95, 0.6)
-	mat.albedo_color = Color(1.0, 0.95, 0.6)
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.billboard_keep_scale = true
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.014, 0.014)
-	quad.material = mat
-	var fx := CPUParticles3D.new()
-	fx.mesh = quad
+	var fx := _spark_emitter(Color(1.0, 0.95, 0.6), 0.014)
 	fx.amount = amount
 	fx.lifetime = 0.9
-	fx.one_shot = true
-	fx.explosiveness = 0.95
 	fx.spread = 180.0
 	fx.initial_velocity_min = 0.4
 	fx.initial_velocity_max = 1.0
@@ -230,6 +239,72 @@ func _sparkle(amount: int) -> void:
 	await get_tree().create_timer(fx.lifetime + 0.3).timeout
 	if is_instance_valid(fx):
 		fx.queue_free()
+
+
+# Player won the match: float the app icon in the middle (eye level, in front of the player) where
+# it pops in and bobs, and ring it with staggered firework bursts for the length of the celebration.
+# Runs as a coroutine alongside _show_end_state's restart wait; restart() bumps _gen so it bails.
+func _celebrate() -> void:
+	_stop_celebration()
+	var gen := _gen
+	var anchor := Node3D.new()
+	add_child(anchor)
+	anchor.global_position = Vector3(0.0, 1.55, -1.05)
+	_party = anchor
+
+	var icon := Sprite3D.new()
+	icon.texture = ICON
+	icon.pixel_size = 0.5 / ICON.get_width()  # ~0.5 m tall regardless of source resolution
+	icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED  # always faces the player
+	icon.scale = Vector3.ZERO
+	anchor.add_child(icon)
+
+	# Pop in, then bob gently up and down for as long as the icon lives.
+	var pop := create_tween()
+	pop.tween_property(icon, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(
+		Tween.EASE_OUT
+	)
+	var bob := create_tween().set_loops()
+	bob.tween_property(icon, "position", Vector3(0.0, 0.05, 0.0), 1.2).set_trans(Tween.TRANS_SINE)
+	bob.tween_property(icon, "position", Vector3(0.0, -0.05, 0.0), 1.2).set_trans(Tween.TRANS_SINE)
+
+	# Fireworks: a burst every ~0.6 s, circling the icon in rotating party colours.
+	var tones := [
+		Color(1.0, 0.4, 0.5), Color(0.5, 0.8, 1.0), Color(1.0, 0.9, 0.4), Color(0.6, 1.0, 0.6)
+	]
+	for i in 8:
+		if gen != _gen or not is_instance_valid(anchor):
+			return
+		var ang := i * TAU / 5.0  # not 8 — so successive bursts land at different angles
+		var off := Vector3(cos(ang) * 0.4, sin(ang) * 0.3, 0.0)
+		_firework(anchor, off, tones[i % tones.size()])
+		await get_tree().create_timer(0.6).timeout
+
+
+# One firework pop at `offset` within the celebration anchor: a fast, wide, gravity-pulled burst.
+func _firework(anchor: Node3D, offset: Vector3, tone: Color) -> void:
+	var fx := _spark_emitter(tone, 0.022)
+	fx.position = offset
+	fx.amount = 40
+	fx.lifetime = 1.1
+	fx.explosiveness = 1.0
+	fx.spread = 180.0
+	fx.initial_velocity_min = 0.9
+	fx.initial_velocity_max = 1.7
+	fx.gravity = Vector3(0.0, -0.9, 0.0)
+	fx.scale_amount_min = 0.6
+	fx.scale_amount_max = 1.4
+	anchor.add_child(fx)
+	fx.emitting = true
+	await get_tree().create_timer(fx.lifetime + 0.3).timeout
+	if is_instance_valid(fx):
+		fx.queue_free()
+
+
+func _stop_celebration() -> void:
+	if is_instance_valid(_party):
+		_party.queue_free()
+	_party = null
 
 
 func _begin_next_round() -> void:
@@ -247,21 +322,21 @@ func _show_end_state(player_won: bool) -> void:
 	_ended = 1 if player_won else 2
 	_render_banner()
 	_flourish(Color(0.4, 1.0, 0.5) if player_won else Color(1.0, 0.4, 0.4), 1.8, 60, true)
+	if player_won:
+		_celebrate()  # icon floats up in the middle, ringed by fireworks (coroutine, runs alongside)
+		Music.victory()  # swap the soundtrack to the victory anthem until Restart
 	_play_stinger(1 if player_won else -1)  # game over is win or lose, never a draw
-	# Auto-restart (R20): after a pause, loop the demo cleanly — no recenter (don't yank the view).
-	var gen := _gen
-	await get_tree().create_timer(restart_delay).timeout
-	if not is_instance_valid(self) or gen != _gen:  # zone gone, or a manual Restart beat us to it
-		return
-	restart(false)
+	# Game stays on the end banner until the player hits Restart (Hud button → restart()).
 
 
 # Fresh match: reset logic + scene, and (for the Hud's Restart button) recenter the player.
-# Reused by the game-over auto-restart (recenter=false). Bumping _gen makes any in-flight
-# round's awaits bail so we never deal over the hand this just dealt.
+# Bumping _gen makes any in-flight round's awaits bail so we never deal over the hand this
+# just dealt.
 func restart(recenter: bool = true) -> void:
 	_gen += 1
 	_round_active = false
+	_stop_celebration()  # clear any win party from the match just ended
+	Music.reset_track()  # turn off the victory anthem, back to the cycled track
 	GameState.new_game()
 	if _game_root and _game_root.has_method("deal_player_hand"):
 		_game_root.deal_player_hand()

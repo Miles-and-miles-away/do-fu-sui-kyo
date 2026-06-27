@@ -113,8 +113,8 @@ vec3 waves_motif(float x, float h, float t) {
 
 // ── Wind: domain-warped flowing streaks = blustering gale ────────────────────
 vec3 wind_motif(float x, float h, float t) {
-	vec2 q = vec2(x * 1.2 - t * 0.8, h * 7.0);          // long horizontal streaks, blowing sideways
-	float warp = fbm(q * 0.5 + vec2(t * 0.3, 0.0));
+	vec2 q = vec2(x * 7.0, h * 1.2 - t * 0.8);          // long vertical streaks, blowing upward
+	float warp = fbm(q * 0.5 + vec2(0.0, t * 0.3));
 	float flow = fbm(q + warp * 1.5);                   // domain warp → curling air currents
 	float streak = smoothstep(0.5, 0.85, flow);
 	float gust = 0.5 + 0.5 * sin(t * 0.6) * sin(t * 0.23);  // blustering gusts swell and drop

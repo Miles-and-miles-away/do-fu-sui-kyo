@@ -18,6 +18,9 @@ const CARD_GROUP := &"card"
 const TABLE_REST_Y := 0.704  # height a card lies flat at — matches PlayZone.table_surface_y
 const FELT_CENTRE := Vector2(0.0, -0.6)  # felt circle centre (x,z) — matches FeltCircle/PlayZone
 const FELT_RADIUS := 0.25  # felt circle radius — ONLY inside here rests; anywhere else flies home
+# ponytail: distance check, no head collider — head cube is ~0.26 wide, so a 0.2 catch radius
+# is generous without snagging cards that merely pass nearby. Tune in-headset if it feels off.
+const HEAD_CATCH_RADIUS := 0.2  # HARD easter egg: a card this close to the robot head sticks in it
 
 # Card.tscn + the 18 frames grouped per type (R8). Assign ONCE in the inspector here.
 # Canonical order (matches docs/SPRITES.md §8 + tools/sprites.py EXPRESSIONS):
@@ -30,6 +33,7 @@ const FELT_RADIUS := 0.25  # felt circle radius — ONLY inside here rests; anyw
 var _slots: Array = []
 
 @onready var _play_zone: Node = $PlayZone  # resolves the round once a card rests inside the felt
+@onready var _robot: Node = $RobotPlayer  # catches a head-thrown card for the HARD easter egg
 
 
 func _ready() -> void:
@@ -55,6 +59,15 @@ func _physics_process(_delta: float) -> void:
 		if c.has_method("is_picked_up") and c.is_picked_up():  # in the player's hand
 			continue
 		var pos: Vector3 = c.global_position
+		# HARD easter egg: a card lobbed into the robot's head sticks there, and the robot plays
+		# THAT card next (it picks from its head, not its hand) — so the player rigs the round.
+		if (
+			GameState.difficulty == GameState.Difficulty.HARD
+			and pos.distance_to(_robot.head_position()) < HEAD_CATCH_RADIUS
+		):
+			GameState.forced_robot_card = c.card_type
+			_robot.catch_in_head(c)
+			continue
 		if pos.y >= TABLE_REST_Y + 0.02:  # still in the air → leave the throw alone
 			continue
 		# It's settled at/below table height. Inside the felt circle → snap flat on top the

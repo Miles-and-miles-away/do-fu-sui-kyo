@@ -72,7 +72,8 @@ shader = ExtResource("6_wall")
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_room"]
 material = SubResource("ShaderMaterial_wall")
-top_radius = 3.0
+; top_radius 0 turns the cylinder into a cone: walls slope in to a point at the apex (a dome).
+top_radius = 0.0
 bottom_radius = 3.0
 height = 4.0
 cap_top = false
@@ -188,9 +189,9 @@ mesh = SubResource("CylinderMesh_felt")
 ; Yawed 15°, pivoting about the left (rules) edge so it stays put and the right (button) edge
 ; swings backward/away — turns the panel flatter to the user's gaze. ponytail: tune the angle.
 transform = Transform3D(0.4226, 0, 0.9063, 0, 1, 0, 0.9063, 0, -0.4226, 0.7383, 1.45, 0.1127)
-screen_size = Vector2(0.95, 0.52)
+screen_size = Vector2(0.95, 0.577)
 ; Unshaded so the panel shows its texture at full brightness — shaded, it went black when angled
 ; away from the scene light in the dim room.
 unshaded = true
 scene = ExtResource("32_hud")
-viewport_size = Vector2(840, 460)
+viewport_size = Vector2(840, 510)
