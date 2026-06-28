@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://main.tscn" id="1_main"]
+[ext_resource type="Script" path="res://tools/_capture_cam.gd" id="2_cam"]
+
+[node name="Capture" type="Node3D"]
+
+[node name="Main" parent="." instance=ExtResource("1_main")]
+
+[node name="CaptureCam" type="Camera3D" parent="."]
+script = ExtResource("2_cam")
