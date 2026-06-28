@@ -22,6 +22,7 @@ var _player: AudioStreamPlayer
 var _user_paused := false
 var _ducked := false
 var _creepy := false  # true only while the 鬼/HARD creepy override is the live track
+var _kickstarted := false  # re-played the opening track once the app actually had audio focus
 
 
 func _ready() -> void:
@@ -30,6 +31,16 @@ func _ready() -> void:
 	_player.volume_db = -8.0
 	add_child(_player)
 	_play_current()
+
+
+# Autoloads init before the headset grants the app audio focus, so the _ready() play() above is
+# sometimes silent (the soundtrack "didn't start"). Re-issue it the first time we actually gain
+# focus. Once only — later focus regains (headset off/on) auto-resume, so don't restart the track.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN and not _kickstarted:
+		_kickstarted = true
+		if _player and not _user_paused:
+			_player.play()
 
 
 func _play_current() -> void:
