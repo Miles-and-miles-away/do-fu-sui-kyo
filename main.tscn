@@ -229,7 +229,7 @@ mesh = SubResource("CylinderMesh_felt")
 [node name="Hud3D" parent="." instance=ExtResource("31_viewport")]
 ; Yawed 15°, pivoting about the left (rules) edge so it stays put and the right (button) edge
 ; swings backward/away — turns the panel flatter to the user's gaze. ponytail: tune the angle.
-transform = Transform3D(0.4226, 0, 0.9063, 0, 1, 0, 0.9063, 0, -0.4226, 0.7383, 1.45, 0.1127)
+transform = Transform3D(0.4226, 0, 0.9063, 0, 1, 0, 0.9063, 0, -0.4226, 0.7383, 1.3, 0.1127)
 screen_size = Vector2(0.95, 0.577)
 ; Unshaded so the panel shows its texture at full brightness — shaded, it went black when angled
 ; away from the scene light in the dim room.
