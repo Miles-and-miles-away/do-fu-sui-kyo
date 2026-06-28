@@ -32,6 +32,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 # fish=WATER, bird=SKY, dino=EARTH — order matches GameState.Type / GameRoot.frames_*.
 CRITTERS = ["fish", "bird", "dino"]
+# Robot opponent trio (docs/SPRITES.md §"Robot opponent variants"). Each reuses its paired
+# element's card colour + kanji label, so the robot's deck reads as the same world. sub = ship.
+ROBOTS = ["sub", "plane", "tank"]
+ROBOT_PAIR = {"sub": "fish", "plane": "bird", "tank": "dino"}  # → WATER / AIR / EARTH
 # Canonical order — same in the GRID (row-major), GameRoot.frames_*, and docs/SPRITES.md §8.
 # blink = neutral eyes-closed; determined_blink = determined eyes-closed (shown while held).
 EXPRESSIONS = ["neutral", "blink", "determined", "determined_blink", "smile", "cry"]
@@ -59,6 +63,9 @@ LABELS = {
     "bird": ("風", "AIR"),  # SKY / wind
     "dino": ("土", "EARTH"),  # EARTH
 }
+# Robots inherit their paired element's colours + label, so the trio reads as the same world.
+for _r, _a in ROBOT_PAIR.items():
+    CARD_BG[_r], FRAME[_r], LABELS[_r] = CARD_BG[_a], FRAME[_a], LABELS[_a]
 BOX_FILL = (255, 255, 255, 255)  # white label-box interior
 INK = (0, 0, 0, 255)  # black label text (DotGothic16)
 # Geometry as fractions of the card so it survives a non-512×768 size. Measured off the
@@ -97,7 +104,7 @@ def _label_box(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: 
 def frame_cards(folder: Path, out_dir: Path) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
-    for name in expected_names():
+    for name in [f"{c}_{e}.png" for c in CRITTERS + ROBOTS for e in EXPRESSIONS]:
         src = folder / name
         if not src.exists():
             continue
@@ -251,7 +258,7 @@ def slice_sheet(
 def bake_backgrounds(folder: Path, out_dir: Path, bg: tuple = None) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written = []
-    for name in expected_names():
+    for name in [f"{c}_{e}.png" for c in CRITTERS + ROBOTS for e in EXPRESSIONS]:
         src = folder / name
         if not src.exists():
             continue

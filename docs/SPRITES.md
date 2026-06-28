@@ -94,9 +94,17 @@ After import, select **GameRoot** in `main.tscn` and fill the three arrays **in 
 - `frames_sky`   ← the 6 `bird_*` frames
 - `frames_earth` ← the 6 `dino_*` frames
 
-GameRoot is the single source of frames — the robot pulls from the same place, so nothing is
-assigned twice. A short array is tolerated (a missing `determined` pair just falls back to
-neutral while held), so you can wire 4 frames first and add the determined pair later.
+The robot fields its own machine trio (§"Robot opponent variants"), so fill its three arrays too,
+same canonical order, paired by element:
+
+- `frames_water_robot` ← the 6 `sub_*` frames
+- `frames_sky_robot`   ← the 6 `plane_*` frames
+- `frames_earth_robot` ← the 6 `tank_*` frames
+
+GameRoot is the single source of frames — the player deals from `frames_water/sky/earth`, the
+robot from `frames_*_robot` (`make_card(t, robot)` picks the set). Both live here, assigned once.
+A short array is tolerated (a missing `determined` pair just falls back to neutral while held),
+so you can wire 4 frames first and add the determined pair later.
 
 ## 9. Process
 

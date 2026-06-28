@@ -39,6 +39,11 @@ const HEAD_CATCH_RADIUS := 0.2  # HARD easter egg: a card this close to the robo
 @export var frames_water: Array[Texture2D]  # Fish (WATER)
 @export var frames_sky: Array[Texture2D]  # Bird (SKY)
 @export var frames_earth: Array[Texture2D]  # Dino (EARTH)
+# The robot fields its own machine trio (docs/SPRITES.md §"Robot opponent variants") — same
+# element, same six expressions, just mechanical. make_card(t, robot=true) pulls these instead.
+@export var frames_water_robot: Array[Texture2D]  # Sub (WATER)
+@export var frames_sky_robot: Array[Texture2D]  # Plane (SKY)
+@export var frames_earth_robot: Array[Texture2D]  # Tank (EARTH)
 
 var _slots: Array = []
 
@@ -130,16 +135,16 @@ func _return_to_slot(card: RigidBody3D) -> void:
 # ── Card factory (single source of cards + frames) ───────────────────────────
 # t is 0/1/2, matching GameState.Type (WATER/SKY/EARTH). Returns an un-parented card;
 # the caller add_child()s it where it belongs (slot for player, throw point for robot).
-func make_card(t: int) -> Node:
+func make_card(t: int, robot: bool = false) -> Node:
 	var card := card_scene.instantiate()
 	card.card_type = t
-	_apply_frames(card, t)
+	_apply_frames(card, t, robot)
 	card.add_to_group(CARD_GROUP)
 	return card
 
 
-func _apply_frames(card: Node, t: int) -> void:
-	var f := _frames_for(t)
+func _apply_frames(card: Node, t: int, robot: bool = false) -> void:
+	var f := _frames_for(t, robot)
 	# Assign by index in canonical order; tolerant of a short array (a missing determined pair
 	# just won't be set — CardFace falls back to neutral, never breaks).
 	var props := [
@@ -149,14 +154,14 @@ func _apply_frames(card: Node, t: int) -> void:
 		card.set(props[i], f[i])
 
 
-func _frames_for(t: int) -> Array[Texture2D]:
+func _frames_for(t: int, robot: bool = false) -> Array[Texture2D]:
 	match t:
 		0:
-			return frames_water
+			return frames_water_robot if robot else frames_water
 		1:
-			return frames_sky
+			return frames_sky_robot if robot else frames_sky
 		_:
-			return frames_earth  # 2 = earth; cards are always 0/1/2
+			return frames_earth_robot if robot else frames_earth  # 2 = earth; cards are always 0/1/2
 
 
 # ── Table presentation ───────────────────────────────────────────────────────

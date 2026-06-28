@@ -106,7 +106,7 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
 	if not (_game_root and _game_root.has_method("make_card")):
 		push_warning("RobotPlayer: GameRoot factory missing; cannot present robot card")
 		return null
-	var card: RigidBody3D = _game_root.make_card(t)
+	var card: RigidBody3D = _game_root.make_card(t, true)  # robot's machine trio, not the animals
 	get_tree().current_scene.add_child(card)
 	card.freeze = true  # carried kinematically; no gravity while it waits/travels
 	card.global_position = deck_point

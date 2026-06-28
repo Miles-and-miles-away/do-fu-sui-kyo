@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://bgvm1dovuj0ur" path="res://game/RobotPlayer.gd" id="4_robot"]
 [ext_resource type="PackedScene" path="res://game/Card.tscn" id="5_card"]
 [ext_resource type="Shader" uid="uid://cs7g761thwnwu" path="res://game/wall.gdshader" id="6_wall"]
+[ext_resource type="Script" path="res://game/RoomShell.gd" id="6_roomshell"]
 [ext_resource type="Shader" path="res://game/wood.gdshader" id="28_wood"]
 [ext_resource type="Shader" path="res://game/felt.gdshader" id="29_felt"]
 [ext_resource type="FontFile" path="res://art/fonts/DotGothic16-Regular.ttf" id="30_font"]
@@ -29,6 +30,24 @@
 [ext_resource type="Texture2D" uid="uid://dljixxrk1v4yr" path="res://art/dino_determined_blink.png" id="25_ddb"]
 [ext_resource type="Texture2D" uid="uid://2brxunp1ng24" path="res://art/dino_smile.png" id="26_ds"]
 [ext_resource type="Texture2D" uid="uid://b15nxdlqa7d2g" path="res://art/dino_cry.png" id="27_dc"]
+[ext_resource type="Texture2D" uid="uid://b4luoyd6stgl1" path="res://art/sub_neutral.png" id="33_sn"]
+[ext_resource type="Texture2D" uid="uid://ch1gb8okv8qp" path="res://art/sub_blink.png" id="34_sb"]
+[ext_resource type="Texture2D" uid="uid://dk1iacxkeu7un" path="res://art/sub_determined.png" id="35_sd"]
+[ext_resource type="Texture2D" uid="uid://c1l32q4hb4yg7" path="res://art/sub_determined_blink.png" id="36_sdb"]
+[ext_resource type="Texture2D" uid="uid://bxhpfti4n217i" path="res://art/sub_smile.png" id="37_ss"]
+[ext_resource type="Texture2D" uid="uid://uojj0vmmj1dl" path="res://art/sub_cry.png" id="38_sc"]
+[ext_resource type="Texture2D" uid="uid://bh3oop74yaka" path="res://art/plane_neutral.png" id="39_pn"]
+[ext_resource type="Texture2D" uid="uid://hh77ix2lfpal" path="res://art/plane_blink.png" id="40_pb"]
+[ext_resource type="Texture2D" uid="uid://j8slt2fkrtg0" path="res://art/plane_determined.png" id="41_pd"]
+[ext_resource type="Texture2D" uid="uid://cw3muwc2c4e2s" path="res://art/plane_determined_blink.png" id="42_pdb"]
+[ext_resource type="Texture2D" uid="uid://t5msa10o7vlo" path="res://art/plane_smile.png" id="43_ps"]
+[ext_resource type="Texture2D" uid="uid://dgyjo6frgbfge" path="res://art/plane_cry.png" id="44_pc"]
+[ext_resource type="Texture2D" uid="uid://ckxjmtsy2ij1m" path="res://art/tank_neutral.png" id="45_tn"]
+[ext_resource type="Texture2D" uid="uid://dh8dm7rv7wl1v" path="res://art/tank_blink.png" id="46_tb"]
+[ext_resource type="Texture2D" uid="uid://j7fjunni2j4v" path="res://art/tank_determined.png" id="47_td"]
+[ext_resource type="Texture2D" uid="uid://i0oc1pgjq3yp" path="res://art/tank_determined_blink.png" id="48_tdb"]
+[ext_resource type="Texture2D" uid="uid://hslsknf5r7n6" path="res://art/tank_smile.png" id="49_ts"]
+[ext_resource type="Texture2D" uid="uid://1cm1qlkkxbyq" path="res://art/tank_cry.png" id="50_tc"]
 
 [sub_resource type="Environment" id="Environment_dim"]
 background_mode = 1
@@ -145,6 +164,7 @@ shape = SubResource("CylinderShape3D_top")
 [node name="RoomShell" type="MeshInstance3D" parent="Environment" unique_id=611089112]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
 mesh = SubResource("SphereMesh_room")
+script = ExtResource("6_roomshell")
 
 [node name="FloorDisc" type="MeshInstance3D" parent="Environment"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.2)
@@ -156,6 +176,9 @@ card_scene = ExtResource("5_card")
 frames_water = Array[Texture2D]([ExtResource("10_fn"), ExtResource("11_fb"), ExtResource("12_fd"), ExtResource("13_fdb"), ExtResource("14_fs"), ExtResource("15_fc")])
 frames_sky = Array[Texture2D]([ExtResource("16_bn"), ExtResource("17_bb"), ExtResource("18_bd"), ExtResource("19_bdb"), ExtResource("20_bs"), ExtResource("21_bc")])
 frames_earth = Array[Texture2D]([ExtResource("22_dn"), ExtResource("23_db"), ExtResource("24_dd"), ExtResource("25_ddb"), ExtResource("26_ds"), ExtResource("27_dc")])
+frames_water_robot = Array[Texture2D]([ExtResource("33_sn"), ExtResource("34_sb"), ExtResource("35_sd"), ExtResource("36_sdb"), ExtResource("37_ss"), ExtResource("38_sc")])
+frames_sky_robot = Array[Texture2D]([ExtResource("39_pn"), ExtResource("40_pb"), ExtResource("41_pd"), ExtResource("42_pdb"), ExtResource("43_ps"), ExtResource("44_pc")])
+frames_earth_robot = Array[Texture2D]([ExtResource("45_tn"), ExtResource("46_tb"), ExtResource("47_td"), ExtResource("48_tdb"), ExtResource("49_ts"), ExtResource("50_tc")])
 
 [node name="PlayerHandAnchors" type="Node3D" parent="GameRoot" unique_id=1424220588]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0.1)
