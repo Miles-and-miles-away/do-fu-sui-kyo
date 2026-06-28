@@ -22,6 +22,9 @@ const ICON := preload("res://art/icon_circle.png")
 # x-offset each card sits from the zone centre so player's and robot's cards never overlap.
 @export var table_surface_y: float = 0.704
 @export var card_spread: float = 0.1
+# World Y the player's eyes sit at once faced at the table — the single knob for too-high/too-low.
+# recenter() pins the head here, so it's the same whether the player stands or sits.
+@export var eye_height: float = 1.3
 
 var _round_active := true
 # Last score shown + whether the game has ended (0 none / 1 player won / 2 player lost), so a
@@ -35,16 +38,21 @@ var _gen := 0
 var _sfx := AudioStreamPlayer.new()
 # Win celebration node (icon + fireworks); held so a restart can clear it mid-show.
 var _party: Node3D
+# True once we've faced the player at the table at startup. XR refocus (overlays, hand-tracking
+# transitions) re-fires xr_started repeatedly — without this we'd re-snap the view every time.
+var _start_faced := false
 
 @onready var _game_root: Node = get_parent()  # GameRoot.gd — owns hand spawning/clearing
 @onready var _score_panel: Label3D = $"../ScorePanel"
 @onready var _robot: Node = $"../RobotPlayer"  # RobotPlayer.gd, presents the robot's card
 @onready var _felt_mat: ShaderMaterial = $"../FeltCircle".mesh.material  # gilds on a good landing
 @onready var _xr_origin: XROrigin3D = $"../../XRRig/XROrigin3D"
+@onready var _xr_camera: XRCamera3D = $"../../XRRig/XROrigin3D/XRCamera3D"
 
-# The rig's authored start offset (eyeline of the robot, sized to the table). center_on_hmd would
-# clobber it from the live HMD pose and drop the player to the floor, so reset just restores this.
-@onready var _start_xform: Transform3D = _xr_origin.transform
+# The authored origin's world pose — recenter() takes the player's seat DEPTH (z, the distance from
+# the table the dev tuned) from it; x is centred on the felt and Y is eye_height, so the head lands
+# at one fixed spot squarely across from the robot.
+@onready var _start_global: Transform3D = _xr_origin.global_transform
 
 
 func _ready() -> void:
@@ -58,6 +66,16 @@ func _ready() -> void:
 	add_to_group("game_control")
 	Lang.changed.connect(_on_lang_changed)
 	_update_score(0, 0)
+
+	# Face the player at the table once XR is up: the runtime's "forward" is wherever the headset's
+	# boundary points, not where the player sits, so the scene can start off to one side. (Restart
+	# re-faces them the same way.)
+	var start_xr := get_node_or_null("../../XRRig/StartXR")
+	var iface := XRServer.primary_interface
+	if iface and iface.is_initialized():
+		_face_player_on_start()  # XR already running (started before this _ready)
+	elif start_xr and start_xr.has_signal("xr_started"):
+		start_xr.xr_started.connect(_face_player_on_start)
 
 
 # Called by GameRoot when a thrown player card comes to rest ≥50% inside the felt circle.
@@ -368,10 +386,10 @@ func _show_end_state(player_won: bool) -> void:
 	# Game stays on the end banner until the player hits Restart (Hud button → restart()).
 
 
-# Fresh match: reset logic + scene, and (for the Hud's Restart button) recenter the player.
-# Bumping _gen makes any in-flight round's awaits bail so we never deal over the hand this
-# just dealt.
-func restart(recenter: bool = true) -> void:
+# Fresh match: reset logic + scene only. The view is NOT touched — the player is faced at the
+# table exactly once, at startup (recenter()); restart leaves them wherever they are. Bumping _gen
+# makes any in-flight round's awaits bail so we never deal over the hand this just dealt.
+func restart() -> void:
 	_gen += 1
 	_round_active = false
 	_stop_celebration()  # clear any win party from the match just ended
@@ -382,6 +400,36 @@ func restart(recenter: bool = true) -> void:
 	_robot.reset_face()
 	_set_target_lit(false)
 	_update_score(0, 0)
-	if recenter:
-		_xr_origin.transform = _start_xform
 	_round_active = true
+
+
+# On XR start, wait for a usable (roughly level) HMD pose, then face the player at the table.
+func _face_player_on_start() -> void:
+	if _start_faced:
+		return  # only once — XR refocus re-fires xr_started, and re-snapping each time jumps the view
+	for _i in 180:  # ~3 s of retries; recenter() declines while the head is still down (donning)
+		await get_tree().process_frame
+		if not is_instance_valid(self):
+			return
+		if recenter():
+			_start_faced = true
+			return
+
+
+# Pin the player's head to one fixed seat — centred on the felt (x=0, across from the robot), at the
+# authored depth (z) and eye_height, facing the table (-Z). We place the origin so origin * cam
+# == that head pose, so it's the same no matter where the player physically stands or how tall they
+# are: can't start off to the side or too high/low. Returns false until the HMD reports a usable
+# (roughly level) heading — head near-vertical while donning isn't usable yet.
+func recenter() -> bool:
+	if not _xr_camera:
+		return false
+	var cam := _xr_camera.transform  # HMD pose in tracking space (relative to the origin)
+	var fwd := -cam.basis.z
+	fwd.y = 0.0
+	if fwd.length() < 0.2:  # head pointing near-vertical (still donning) — not a usable heading yet
+		return false
+	var yaw := Basis(Vector3.UP, atan2(fwd.x, -fwd.z))  # turn the head to face the table (-Z)
+	var head := Vector3(0.0, eye_height, _start_global.origin.z)  # x=0 centres on the robot/felt line
+	_xr_origin.global_transform = Transform3D(yaw, head - yaw * cam.origin)
+	return true

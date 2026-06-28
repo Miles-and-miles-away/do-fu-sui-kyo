@@ -1,8 +1,10 @@
 # game/Hud.gd — the 2D retro control panel, rendered into the world by a Viewport2Din3D and
 # operated either by poking the buttons (finger touch) or the controllers' laser pointer.
 # ─────────────────────────────────────────────────────────────────────────────
-# Buttons (Restart / Rules / Language) sit in a vertically-centred column on the right; the
-# Rules card opens to their left so it never covers them — tap Rules again to close. Built in
+# Buttons (Restart / Rules+Story / Language) sit in a vertically-centred column on the right;
+# the Rules and Story cards open to their left (sharing one slot — opening one hides the other,
+# and the Story card auto-opens at startup and on Restart) so they never cover the buttons —
+# tap the button again to close. Built in
 # code so the .tscn stays a single node. Every label is a Lang.t() call and re-renders on
 # Lang.changed, so the toggle re-languages the whole panel (and its own caption) in one place.
 extends Control
@@ -13,16 +15,21 @@ const FONT := preload("res://art/fonts/DotGothic16-Regular.ttf")
 const BG := Color(0.07, 0.06, 0.12)
 const EDGE := Color(0.4, 0.95, 0.85)
 const TEXT := Color(0.95, 0.97, 1.0)
+const TITLE := Color(1.0, 0.85, 0.2)  # card-heading yellow
 
 var _restart_btn: Button
 var _diff_btns: Array[Button] = []  # Easy / Medium / Hard, in GameState.Difficulty order
 var _rules_btn: Button
+var _story_btn: Button
 var _playpause_btn: Button
 var _skip_btn: Button
 var _lang_btn: Button
 var _rules_panel: PanelContainer
 var _rules_label: Label
 var _rules_title: Label
+var _story_panel: PanelContainer
+var _story_label: Label
+var _story_title: Label
 var _track_label: Label  # transient "now playing" name, shown ~2 s on a Track press
 var _track_timer: Timer
 
@@ -60,7 +67,18 @@ func _ready() -> void:
 		b.add_theme_stylebox_override("focus", _slab(BG, 4, 6))
 		b.pressed.connect(_on_difficulty.bind(level))
 		_diff_btns.append(b)
-	_rules_btn = _make_button(col)
+	# Rules + Story share one row (like the music row) so the column keeps 5 rows and stays
+	# inside the 510px-tall viewport — a 6th full-height row would clip top & bottom.
+	var info_row := HBoxContainer.new()
+	info_row.add_theme_constant_override("separation", 10)
+	col.add_child(info_row)
+	_rules_btn = _make_button(info_row)
+	_story_btn = _make_button(info_row)
+	_rules_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_story_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Smaller font + tight side margins so the long JP labels (ストーリー) fit two-across.
+	_rules_btn.add_theme_font_size_override("font_size", 20)
+	_story_btn.add_theme_font_size_override("font_size", 20)
 	# Music row: one button split in two — play/pause on the left, skip on the right.
 	var music_row := HBoxContainer.new()
 	music_row.add_theme_constant_override("separation", 10)
@@ -74,6 +92,7 @@ func _ready() -> void:
 
 	_restart_btn.pressed.connect(_on_restart)
 	_rules_btn.pressed.connect(_toggle_rules)
+	_story_btn.pressed.connect(_toggle_story)
 	_playpause_btn.pressed.connect(_on_playpause)
 	_skip_btn.pressed.connect(_on_skip)
 	_lang_btn.pressed.connect(Lang.toggle)
@@ -112,14 +131,39 @@ func _ready() -> void:
 	_rules_panel.add_child(box)
 
 	_rules_title = _label(box, 26)
+	_rules_title.add_theme_color_override("font_color", TITLE)
 	_rules_label = _label(box, 19)
 	# Wrap long lines to the card width so nothing is clipped off-panel.
 	_rules_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rules_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
+	# ── Story card: same slot/styling as the Rules card; only one of the two shows at a time.
+	# Opens automatically at startup and on Restart to set the scene before the first deal.
+	_story_panel = PanelContainer.new()
+	_story_panel.set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	_story_panel.offset_left = 24
+	_story_panel.offset_top = 24
+	_story_panel.offset_bottom = -24
+	_story_panel.offset_right = 500
+	_story_panel.add_theme_stylebox_override("panel", _slab(BG, 4))
+	_story_panel.visible = false
+	add_child(_story_panel)
+
+	var story_box := VBoxContainer.new()
+	story_box.add_theme_constant_override("separation", 16)
+	story_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	_story_panel.add_child(story_box)
+
+	_story_title = _label(story_box, 26)
+	_story_title.add_theme_color_override("font_color", TITLE)
+	_story_label = _label(story_box, 19)
+	_story_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_story_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
 	Lang.changed.connect(_retext)
 	_retext()
 	_update_playpause_icon()
+	_set_story_visible(true)  # greet the player with the story before the first hand
 
 
 # Re-render every caption in the current language. Called on ready and on toggle.
@@ -130,6 +174,7 @@ func _retext() -> void:
 		_diff_btns[i].text = diff_text[i]
 	_update_difficulty_highlight()
 	_rules_btn.text = Lang.t("RULES", "ルール")
+	_story_btn.text = Lang.t("STORY", "ストーリー")
 	# The toggle advertises the language it switches TO (per spec): 日本 in English, EN in Japanese.
 	_lang_btn.text = "日本" if not Lang.jp else "EN"
 	_rules_title.text = Lang.t("HOW TO PLAY", "あそびかた")
@@ -151,12 +196,31 @@ func _retext() -> void:
 			+ "あかい フェルトの まるに なげて だす。"
 		)
 	)
+	_story_title.text = Lang.t("THE STORY", "ものがたり")
+	_story_label.text = Lang.t(
+		(
+			"The AI robots have awoken.\n\n"
+			+ "They are taking over the world!\n\n"
+			+ "We must battle to save the Earth.\n\n"
+			+ "Our animal friends, fish, bird and dino, fight at our side.\n\n"
+			+ "Win the duel. Save the world!"
+		),
+		(
+			"AIロボットが めをさました。\n\n"
+			+ "せかいを のっとろうと している！\n\n"
+			+ "ちきゅうを すくうために たたかおう。\n\n"
+			+ "どうぶつの なかま、さかな・とり・きょうりゅう が みかただ。\n\n"
+			+ "しょうぶに かって せかいを すくえ！"
+		)
+	)
 
 
 func _on_restart() -> void:
 	_set_rules_visible(false)
-	# PlayZone owns the scene-side reset (re-deal, faces, recenter). true = recenter the player.
-	get_tree().call_group("game_control", "restart", true)
+	_set_story_visible(true)  # replay the intro on every fresh game
+	# PlayZone owns the scene-side reset (re-deal, faces). It does NOT recenter the view — the
+	# player is faced at the table once, at startup only.
+	get_tree().call_group("game_control", "restart")
 	_update_difficulty_highlight()  # new_game() reset difficulty to MEDIUM — reflect it
 
 
@@ -184,6 +248,10 @@ func _toggle_rules() -> void:
 	_set_rules_visible(not _rules_panel.visible)
 
 
+func _toggle_story() -> void:
+	_set_story_visible(not _story_panel.visible)
+
+
 # Play/pause the music; the icon reflects the new state.
 func _on_playpause() -> void:
 	Music.toggle_play()
@@ -199,6 +267,9 @@ func _on_skip() -> void:
 # Pop the "now playing" name level with the play/pause row for ~2 s. Skip/creepy both resume
 # playback, so refresh the play/pause icon too.
 func _flash_track(name: String) -> void:
+	# Close the cards so the name (which pops over their slot) isn't hidden behind them.
+	_set_rules_visible(false)
+	_set_story_visible(false)
 	_track_label.text = name
 	# Anchored TOP_RIGHT, so offset_top is absolute-from-top — line it up with the live button.
 	_track_label.offset_top = _playpause_btn.global_position.y
@@ -213,8 +284,17 @@ func _update_playpause_icon() -> void:
 	_playpause_btn.text = "‖" if Music.is_playing() else "▶"
 
 
+# Rules and Story share the left slot — showing one hides the other.
 func _set_rules_visible(v: bool) -> void:
 	_rules_panel.visible = v
+	if v:
+		_story_panel.visible = false
+
+
+func _set_story_visible(v: bool) -> void:
+	_story_panel.visible = v
+	if v:
+		_rules_panel.visible = false
 
 
 # ── tiny builders ────────────────────────────────────────────────────────────
