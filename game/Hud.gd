@@ -79,13 +79,11 @@ func _ready() -> void:
 	_lang_btn.pressed.connect(Lang.toggle)
 
 	# Transient "now playing" name — pops to the players-right of the buttons for ~2 s on a
-	# Track press, then auto-hides. Same texture-left region as the Rules card (both rarely co-occur).
+	# Track press, then auto-hides. _flash_track() sits it level with the play/pause row.
 	_track_label = _label(self, 22)
-	_track_label.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
-	_track_label.offset_left = -720
-	_track_label.offset_top = -34
-	_track_label.offset_right = -270
-	_track_label.offset_bottom = 34
+	_track_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_track_label.offset_left = -600
+	_track_label.offset_right = -340  # just left of the button column (its left edge ~ -330)
 	_track_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_track_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_track_label.add_theme_stylebox_override("normal", _slab(BG, 2))
@@ -166,9 +164,10 @@ func _on_difficulty(level: int) -> void:
 	GameState.set_difficulty(level)
 	if level == GameState.Difficulty.HARD:
 		# 鬼 mode forces the creepy track (player can skip back to the cycle afterwards).
-		_track_label.text = Music.play_creepy()
-		_track_label.visible = true
-		_track_timer.start(2.0)
+		_flash_track(Music.play_creepy())
+	else:
+		# Leaving 鬼 restores the normal cycle track (no-op if creepy was already skipped away).
+		Music.reset_if_creepy()
 		_update_playpause_icon()
 	_update_difficulty_highlight()
 
@@ -194,7 +193,16 @@ func _on_playpause() -> void:
 # Skip to the next track + flash its name for ~2 s (re-press restarts the timer). Skipping
 # resumes playback, so refresh the play/pause icon too.
 func _on_skip() -> void:
-	_track_label.text = Music.next_track()
+	_flash_track(Music.next_track())
+
+
+# Pop the "now playing" name level with the play/pause row for ~2 s. Skip/creepy both resume
+# playback, so refresh the play/pause icon too.
+func _flash_track(name: String) -> void:
+	_track_label.text = name
+	# Anchored TOP_RIGHT, so offset_top is absolute-from-top — line it up with the live button.
+	_track_label.offset_top = _playpause_btn.global_position.y
+	_track_label.offset_bottom = _playpause_btn.global_position.y + _playpause_btn.size.y
 	_track_label.visible = true
 	_track_timer.start(2.0)
 	_update_playpause_icon()

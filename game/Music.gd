@@ -21,6 +21,7 @@ var _player: AudioStreamPlayer
 # Kept apart so a jingle's resume() can't undo a manual pause (and vice-versa).
 var _user_paused := false
 var _ducked := false
+var _creepy := false  # true only while the 鬼/HARD creepy override is the live track
 
 
 func _ready() -> void:
@@ -32,6 +33,7 @@ func _ready() -> void:
 
 
 func _play_current() -> void:
+	_creepy = false
 	var stream: AudioStream = load(TRACKS[_i].path)
 	if stream == null:  # not-yet-imported file just means silence, never a crash
 		return
@@ -70,6 +72,7 @@ func is_playing() -> bool:
 # Swap the soundtrack to a fixed track outside the cycle (looping). reset_track() puts the
 # cycled track back; skip/next also escapes it. Shared by victory/evil_laugh/play_creepy.
 func _play_override(path: String) -> void:
+	_creepy = false  # play_creepy() re-sets this after; victory/evil_laugh leave it off
 	var stream: AudioStream = load(path)
 	if stream == null:  # not-yet-imported file just means silence, never a crash
 		return
@@ -96,7 +99,15 @@ func evil_laugh() -> void:
 # Returns the HUD caption (like next_track()).
 func play_creepy() -> String:
 	_play_override("res://music/creepy-song.mp3")
+	_creepy = true
 	return "Creepy Song"
+
+
+# Leaving 鬼/HARD: restore the cycle track, but only if creepy is still the live track (a skip
+# back to the cycle, or a win/lose anthem, should be left alone).
+func reset_if_creepy() -> void:
+	if _creepy:
+		reset_track()
 
 
 # Back to the currently-selected cycle track (turns off the victory anthem on Restart).

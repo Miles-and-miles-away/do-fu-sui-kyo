@@ -193,3 +193,66 @@ Row 3: (5) **smile** — big joyful open smile, bright eyes (a winner); (6) **cr
 downturned eyes with tear drops, wobbly frown (a loser, still cute).
 High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
 watermark, extra characters, or background objects.**
+
+### Robot opponent variants (tank / plane / ship)
+
+The robot will field its own **machine** trio instead of pulling the animal frames (§8). Same six
+expressions, same per-element card colour, same style DNA — just mechanical mascots, so the
+robot's cards read as "the same world, built by the robot." Pair each to its element/animal:
+
+| Robot | Element | Pairs with | Sheet bg (bake recolours to `CARD_BG`) |
+|---|---|---|---|
+| **ship**  | WATER (水, 0) | fish | soft aqua |
+| **plane** | AIR   (風, 1) | bird | pale sky-blue |
+| **tank**  | EARTH (土, 2) | dino | soft sage-green |
+
+Files mirror the animal convention: `ship_*`, `plane_*`, `tank_*` (the six expressions from §1).
+Generate **Fish first** (or the **ship**) and attach it as the style reference for the other two,
+same as the animals. *Wiring (slicer `CRITTERS`/`CARD_BG` keys, GameRoot robot frame arrays, and
+the §8 "same place" note) is a follow-up — these prompts just make the art.*
+
+**Ship** — A cute kawaii mascot **robot ship** card face. Flat modern vector illustration:
+thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+texture. A round friendly aqua-teal little ship-bot with a rounded hull body, a tiny smokestack
+and a small periscope, soft rounded fins, big round glowing screen eyes — chibi, front-facing,
+centered, symmetrical. Solid flat **soft aqua** background, no scenery. Compose **six portraits of
+this exact same ship-bot in a clean 2×3 grid** (2 wide, 3 tall), equal cells, drawn at the
+**identical size, position, pose, lighting and framing in every cell** — only the expression changes.
+Row 1: (1) **neutral** — calm, screen eyes open; (2) **blink** — identical but eyes gently closed
+(screens dimmed to soft lines);
+Row 2: (3) **determined** — focused and eager, slightly angled glowing brows, determined mouth, psyched up, very slightly angry but more determined; (4) **determined-blink** — the determined face
+with eyes gently closed;
+Row 3: (5) **smile** — big joyful glowing screen smile, bright sparkly eyes (a winner), a little evil / crazy; (6) **cry** — teary downturned screen eyes with little blue coolant tear drops, wobbly frown (a loser, still cute).
+High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
+watermark, extra characters, or background objects.**
+
+**Plane** — A cute kawaii mascot **robot plane** card face. Flat modern vector illustration:
+thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+texture. A round friendly warm-yellow/coral little plane-bot with a rounded fuselage body, small
+stubby wings, a tiny nose propeller, big round glowing screen eyes — chibi, front-facing,
+centered, symmetrical. Solid flat **pale sky-blue** background, no scenery. Compose **six portraits
+of this exact same plane-bot in a clean 2×3 grid** (2 wide, 3 tall), equal cells, drawn at the
+**identical size, position, pose, lighting and framing in every cell** — only the expression changes.
+Row 1: (1) **neutral** — calm, screen eyes open; (2) **blink** — identical but eyes gently closed
+(screens dimmed to soft lines);
+Row 2: (3) **determined** — focused and eager, slightly angled glowing brows, determined mouth, psyched up, very slightly angry but more determined; (4) **determined-blink** — the determined face
+with eyes gently closed;
+Row 3: (5) **smile** — big joyful glowing screen smile, bright sparkly eyes (a winner), a little evil / crazy; (6) **cry** — teary downturned screen eyes with little blue coolant tear drops, wobbly frown (a loser, still cute).
+High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
+watermark, extra characters, or background objects.**
+
+**Tank** — A cute kawaii mascot **robot tank** card face. Flat modern vector illustration:
+thick clean dark outlines, smooth cel shading with one soft top highlight, no gradients or
+texture. A round chunky leaf-green little tank-bot with a rounded armoured body, soft rounded
+treads, a stubby friendly turret tilted gently up, big round glowing screen eyes — chibi,
+front-facing, centered, symmetrical. Solid flat **soft sage-green** background, no scenery. Compose
+**six portraits of this exact same tank-bot in a clean 2×3 grid** (2 wide, 3 tall), equal cells,
+drawn at the **identical size, position, pose, lighting and framing in every cell** — only the
+expression changes.
+Row 1: (1) **neutral** — calm, screen eyes open; (2) **blink** — identical but eyes gently closed
+(screens dimmed to soft lines);
+Row 2: (3) **determined** — focused and eager, slightly angled glowing brows, determined mouth, psyched up, very slightly angry but more determined; (4) **determined-blink** — the determined face
+with eyes gently closed;
+Row 3: (5) **smile** — big joyful glowing screen smile, bright sparkly eyes (a winner), a little evil / crazy; (6) **cry** — teary downturned screen eyes with little blue coolant tear drops, wobbly frown (a loser, still cute).
+High-res, **one uniform background colour across all six cells**. **No text, labels, borders,
+watermark, extra characters, or background objects.**

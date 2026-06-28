@@ -167,7 +167,7 @@ Card  (root extends XRToolsPickable → IS a RigidBody3D)  + CardFace.gd   # gra
 
 > **Priority (revised):** the **room shell itself is SHOULD** (a dark inverted cylinder — trivial,
 > R29). The **animated Fire/Waves/Wind motifs are STRETCH** (R30/R31) and **cut-first** — default
-> to a static low-contrast shell; add the motion only with Day-2-PM slack.
+> to a static low-contrast shell; add the motion only if time.
 
 A **circular room** encloses the table: an inverted cylinder shell whose walls carry three
 stylized elemental motifs — **Fire, Waves, Wind** — in flat block / SVG-like shapes that move
@@ -482,7 +482,7 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
 
 ---
 
-## 10. Day-by-day plan
+## 10. Plan
 
 **Stage 0 — prove the pipeline (toolchain before code)**
 - **New Godot 4.7 project** (already bootstrapped in-repo). Install matching export templates +
@@ -518,7 +518,7 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | Toolchain/export eats Day 1 — building the XR rig + Quest export from scratch | **High** | **Copy the addon's `pickable_demo` rig + `grab_cube` rather than hand-wiring `XROrigin3D`** — XR Tools ships the whole rig (ASSETS §1), so this is mostly config, not authoring. Deploy that **minimal bring-up build (rig + grab cube) first**, before any game code; follow XR Tools' Quest deploy docs exactly. Godot 4.7 + matching export + Android build templates. Budget all of Stage 0 for this. |
-| Flat-card throw feels janky (tumbles, lands on edge) | High | Fatten collider; consider locking rotation; PlayZone box is generous + low so *any* entry counts. Budget Day-2 buffer. |
+| Flat-card throw feels janky (tumbles, lands on edge) | High | Fatten collider; consider locking rotation; PlayZone box is generous + low so *any* entry counts. Budget time buffer. |
 | Scope creep (esp. into the deck/hand layer) | Medium | Scope is frozen (§1). Complexity allowed only in `GameState.gd`. |
 | Deck empties → crash mid-demo | Medium | `draw_one()` rebuilds on empty (already handled). Don't remove that guard. |
 | Sprite framing inconsistent (jumpy faces) | Medium | Same crop/size/background for all 18 frames; check side-by-side before wiring. |
@@ -553,7 +553,7 @@ func present_card(t: int, lay_pos: Vector3) -> Node:
   auto-spawns the refill** (no `DrawPile` grab). An earlier draft wrongly listed this as committed.
 - **REVISED:** Circular elemental room (§4.5) is ambiance outside the §1 frozen core. **Room shell
   = SHOULD** (a dark inverted cylinder); **animated Fire/Waves/Wind motifs = STRETCH / cut-first**
-  (FSD R29 vs R30/R31) — default to a static shell, animate only with Day-2-PM slack.
+  (FSD R29 vs R30/R31) — default to a static shell, animate only if time.
 - **DECIDED:** From-scratch Godot 4.7 project + **Godot XR Tools** addon for the rig +
   `XRToolsPickable`; we build the Quest export ourselves (§3). **The addon ships the full rig + a
   runnable `pickable_demo` — copy it, don't hand-wire** (ASSETS §1).

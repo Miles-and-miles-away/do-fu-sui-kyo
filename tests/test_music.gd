@@ -140,3 +140,11 @@ func _m7_forced_tracks_swap_outside_the_cycle(music) -> void:
 	_check(
 		_path(music) == music.TRACKS[before_i].path, "M7: reset should return to the cycle track"
 	)
+	# Leaving 鬼: reset_if_creepy() restores the cycle while creepy plays, but leaves a non-creepy
+	# track (a skip-away, or a win/lose anthem) alone.
+	music.play_creepy()
+	music.reset_if_creepy()
+	_check(_path(music) != CREEPY, "M7: reset_if_creepy() should drop the creepy track")
+	music.victory()
+	music.reset_if_creepy()
+	_check(_path(music) == VICTORY, "M7: reset_if_creepy() must not clobber a non-creepy track")
