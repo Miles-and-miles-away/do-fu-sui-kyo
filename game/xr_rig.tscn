@@ -34,7 +34,7 @@ tracker = &"left_hand"
 
 [node name="FunctionPickup" parent="XROrigin3D/LeftHand" instance=ExtResource("2_pickup")]
 pickup_axis_action = "trigger"
-impulse_factor = 1.6
+impulse_factor = 2.0
 
 ; Fingertip poke so the player can physically TOUCH the control panel. Offset forward (-Z) to
 ; roughly the index tip; mask = bit 23 (ui-objects) only so it pokes the panel but never nudges
@@ -55,7 +55,7 @@ tracker = &"right_hand"
 
 [node name="FunctionPickup" parent="XROrigin3D/RightHand" instance=ExtResource("2_pickup")]
 pickup_axis_action = "trigger"
-impulse_factor = 1.6
+impulse_factor = 2.0
 
 [node name="Poke" parent="XROrigin3D/RightHand" instance=ExtResource("6_poke")]
 ; Hand is held thumb-up (chop), so fingers stack vertically — shift UP in Y to reach the index tip.

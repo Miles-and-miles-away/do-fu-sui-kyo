@@ -22,14 +22,15 @@ render_mode unshaded, cull_disabled;
 uniform float brightness = 0.8;      // overall level — keep cards the brightest thing in view
 uniform float repeats = 2.0;         // Fire|Waves|Wind sets around the circle (2 = front + back)
 uniform float column_offset = 0.0;   // rotate columns to align Fire/Waves/Wind in-headset
-uniform float fire_speed = 0.6;      // per-motif animation rates
-uniform float wave_speed = 1.0;
-uniform float wind_speed = 1.0;
+uniform float fire_speed = 0.15;     // per-motif animation rates
+uniform float wave_speed = 0.35;
+uniform float wind_speed = 0.35;
+uniform float speed_scale = 1.0;     // per-difficulty multiplier, set from GDScript (EASY 0.8 … HARD 1.2)
 
 // ── fire shape (from the MIT 3D Fire Shader) ─────────────────────────────────
-uniform float detail_strength = 3.0;
+uniform float detail_strength = 12.0;  // noise cells across the fire column — match wind's density (~x*7) so flames aren't blocky
 uniform float scroll_speed = 1.4;
-uniform float fire_height = 1.0;
+uniform float fire_height = 1.6;
 uniform float fire_shape = 1.8;
 uniform float fire_thickness = 5.0;
 uniform float fire_sharpness = 1.0;
@@ -50,6 +51,7 @@ float hash(vec2 p) {
 float vnoise(vec2 x) {
 	vec2 p = floor(x);
 	vec2 f = fract(x);
+	f = f * f * (3.0 - 2.0 * f);   // Hermite smooth: without it the grid shows as blocky/pixellated
 	return hash(p) * (1.0 - f.x) * (1.0 - f.y)
 		+ hash(p + vec2(1.0, 0.0)) * f.x * (1.0 - f.y)
 		+ hash(p + vec2(0.0, 1.0)) * (1.0 - f.x) * f.y
@@ -105,7 +107,7 @@ vec3 fire_motif(vec2 uv, float t) {
 // ── Waves: the whole column is caustic-lit water, lighter up top, deeper down ─
 vec3 waves_motif(float x, float h, float t) {
 	float depth = clamp(1.0 - h, 0.0, 1.0);                 // 0 at ceiling (shallow) → 1 at floor (deep)
-	float ca = caustic(vec2(x * 2.0, h * 2.0), t * 1.6);    // slightly higher flux
+	float ca = caustic(vec2(x * 2.0, h * 2.0 - t * 0.8), t * 1.6);  // scroll up so the water flows upward
 	vec3 body = mix(vec3(0.10, 0.55, 0.75), vec3(0.02, 0.18, 0.40), depth); // shallow→deep, still blue
 	body += vec3(0.4, 0.8, 0.9) * ca * (1.0 - depth * 0.5);                 // caustic light
 	return body * (0.85 + 0.15 * sin(t * 1.6));                             // gentle pulse
@@ -130,13 +132,13 @@ void fragment() {
 	float lx = 0.0;                                      // local x within the column, 0..1
 	if (c < band) {
 		lx = c / band;
-		m = fire_motif(vec2(lx, h), TIME * fire_speed);
+		m = fire_motif(vec2(lx, h), TIME * fire_speed * speed_scale);
 	} else if (c < 2.0 * band) {
 		lx = (c - band) / band;
-		m = waves_motif(lx, h, TIME * wave_speed);
+		m = waves_motif(lx, h, TIME * wave_speed * speed_scale);
 	} else {
 		lx = (c - 2.0 * band) / band;
-		m = wind_motif(lx, h, TIME * wind_speed);
+		m = wind_motif(lx, h, TIME * wind_speed * speed_scale);
 	}
 
 	// Fade each column at its side edges → distinct blocks with dark gaps between (SVG look).
